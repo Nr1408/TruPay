@@ -1,158 +1,132 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ScanFace, Fingerprint, Loader2, ShieldCheck } from "lucide-react";
-import { useTranslation } from "react-i18next";
+import { Shield, Fingerprint, ScanFace, ChevronRight, Lock, CheckCircle2 } from "lucide-react";
 import { PhoneShell } from "@/components/PhoneShell";
-import { BiometricPrompt } from "@/components/BiometricPrompt";
 import { cn } from "@/lib/utils";
-import { setBiometricSettings } from "@/lib/biometrics";
+import { isBiometricAvailable, setBiometricSettings } from "@/lib/biometrics";
+import { FaceIdScanner } from "@/components/FaceIdScanner";
+import { toast } from "sonner";
 
 const OnboardingBiometric = () => {
-  const { t } = useTranslation();
   const navigate = useNavigate();
-  const [isEnrolling, setIsEnrolling] = useState(false);
-  const [showPrompt, setShowPrompt] = useState(false);
-  const [bioType, setBioType] = useState<"face" | "fingerprint">("face");
+  const [available, setAvailable] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
+  const [type, setType] = useState<"face" | "fingerprint">("face");
 
-  const handleEnroll = () => {
-    setIsEnrolling(true);
-    setShowPrompt(true);
+  useEffect(() => {
+    isBiometricAvailable().then(setAvailable);
+  }, []);
+
+  const handleEnable = () => {
+    if (type === "face") {
+      setShowScanner(true);
+    } else {
+      // Fingerprint still uses native default for now
+      enrollNative();
+    }
   };
 
-  const handleBiometricSuccess = () => {
-    setBiometricSettings({ enabled: true, type: bioType });
-    setShowPrompt(false);
-    navigate("/onboarding/bank");
+  const enrollNative = async () => {
+    const { registerBiometric } = await import("@/lib/biometrics");
+    const success = await registerBiometric(type);
+    if (success) {
+      setBiometricSettings({ enabled: true, type });
+      toast.success(`${type === "face" ? "Face ID" : "Fingerprint"} enabled successfully!`);
+      navigate("/onboarding/phone", { replace: true });
+    } else {
+      toast.error("Biometric enrollment failed. Please try again or skip.");
+    }
   };
 
-  const handleClosePrompt = () => {
-    setShowPrompt(false);
-    setIsEnrolling(false);
+  const onScannerSuccess = () => {
+    setShowScanner(false);
+    setBiometricSettings({ enabled: true, type: "face" });
+    toast.success("Face ID enrolled successfully via Sentinel Vision! 🛡️");
+    navigate("/onboarding/phone", { replace: true });
   };
 
-  const handleSkip = () => {
-    setBiometricSettings({ enabled: false, type: bioType });
-    navigate("/onboarding/bank");
-  };
+  if (showScanner) {
+    return <FaceIdScanner onSuccess={onScannerSuccess} onCancel={() => setShowScanner(false)} />;
+  }
 
   return (
     <PhoneShell hideNav>
-      <div className="h-full flex flex-col px-8 pt-10 pb-12 bg-background relative">
+      <div className="h-full flex flex-col px-8 pt-10 pb-12 bg-background relative overflow-hidden">
         {/* Decorative background glow */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl -mr-32 -mt-32" />
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -ml-32 -mb-32" />
 
-        <div className="flex-1 flex flex-col items-center justify-center relative z-10">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 mb-6">
-            <ShieldCheck className="w-6 h-6 text-primary" />
+        <div className="flex-1 flex flex-col items-center justify-center text-center relative z-10">
+          <div className="w-24 h-24 rounded-[32px] bg-primary/10 flex items-center justify-center mb-10 shadow-inner border border-primary/20">
+            <Shield className="w-12 h-12 text-primary" />
           </div>
-          <h1 className="text-2xl font-display font-bold mb-2 tracking-tight text-center">{t('Secure your App')}</h1>
-          <p className="text-muted-foreground text-[13px] mb-8 max-w-[280px] text-center leading-snug">
-            {t('Protect your account with biometric authentication for faster and safer payments.')}
+          
+          <h1 className="text-3xl md:text-4xl font-display font-bold mb-4 animate-in fade-in duration-700">
+            Secure your Vault.
+          </h1>
+          <p className="text-muted-foreground text-sm max-w-[280px] leading-relaxed mb-12 animate-in fade-in duration-700 delay-100">
+            Use biometrics for lightning-fast payments and unbreakable account protection.
           </p>
 
-          <div className="flex justify-center gap-3 w-full mb-8 px-2">
-            <button 
-              onClick={() => setBioType("face")}
+          <div className="w-full space-y-4 mb-12">
+            <button
+              onClick={() => setType("face")}
               className={cn(
-                "flex-1 relative aspect-square rounded-[28px] flex flex-col items-center justify-center gap-2 transition-all duration-300 border-2 overflow-hidden",
-                bioType === "face" 
-                  ? "bg-primary/5 border-primary shadow-[0_0_15px_rgba(var(--primary),0.1)]" 
-                  : "bg-card border-transparent hover:border-primary/20"
+                "w-full p-6 rounded-[32px] border-2 transition-all duration-300 flex items-center gap-4 group",
+                type === "face" ? "bg-primary/5 border-primary shadow-glow" : "bg-card border-transparent hover:border-border"
               )}
             >
               <div className={cn(
-                "w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300",
-                bioType === "face" ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"
+                "w-12 h-12 rounded-2xl flex items-center justify-center transition-all",
+                type === "face" ? "bg-primary text-white" : "bg-secondary text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
               )}>
                 <ScanFace className="w-6 h-6" />
               </div>
-              <span className={cn(
-                "text-[10px] font-bold transition-colors leading-tight px-2 text-center",
-                bioType === "face" ? "text-primary" : "text-muted-foreground"
-              )}>{t('Face ID')}</span>
+              <div className="text-left">
+                <p className="text-sm font-bold">Face ID</p>
+                <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Recommended</p>
+              </div>
+              {type === "face" && <CheckCircle2 className="w-5 h-5 text-primary ml-auto animate-in zoom-in" />}
             </button>
 
-            <button 
-              onClick={() => setBioType("fingerprint")}
+            <button
+              onClick={() => setType("fingerprint")}
               className={cn(
-                "flex-1 relative aspect-square rounded-[28px] flex flex-col items-center justify-center gap-2 transition-all duration-300 border-2 overflow-hidden",
-                bioType === "fingerprint" 
-                  ? "bg-primary/5 border-primary shadow-[0_0_15px_rgba(var(--primary),0.1)]" 
-                  : "bg-card border-transparent hover:border-primary/20"
+                "w-full p-6 rounded-[32px] border-2 transition-all duration-300 flex items-center gap-4 group",
+                type === "fingerprint" ? "bg-primary/5 border-primary shadow-glow" : "bg-card border-transparent hover:border-border"
               )}
             >
               <div className={cn(
-                "w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300",
-                bioType === "fingerprint" ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"
+                "w-12 h-12 rounded-2xl flex items-center justify-center transition-all",
+                type === "fingerprint" ? "bg-primary text-white" : "bg-secondary text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
               )}>
                 <Fingerprint className="w-6 h-6" />
               </div>
-              <span className={cn(
-                "text-[10px] font-bold transition-colors leading-tight px-2 text-center",
-                bioType === "fingerprint" ? "text-primary" : "text-muted-foreground"
-              )}>{t('Touch ID')}</span>
+              <div className="text-left">
+                <p className="text-sm font-bold">Touch ID</p>
+                <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Fingerprint</p>
+              </div>
+              {type === "fingerprint" && <CheckCircle2 className="w-5 h-5 text-primary ml-auto animate-in zoom-in" />}
             </button>
           </div>
-
-          <div className="relative w-40 h-40 flex items-center justify-center">
-            {/* Ambient circular ring */}
-            <div className="absolute inset-0 rounded-full border border-primary/10" />
-            <div className="absolute inset-1.5 rounded-full border border-dashed border-primary/20 animate-[spin_20s_linear_infinite]" />
-            
-            <div className={cn(
-              "w-28 h-28 rounded-[36px] flex items-center justify-center transition-all duration-500 relative z-20",
-              isEnrolling ? "bg-primary/10 shadow-glow scale-105" : "bg-secondary/30"
-            )}>
-              {bioType === "face" ? (
-                <ScanFace className={cn("w-12 h-12 transition-all duration-500", isEnrolling ? "text-primary" : "text-muted-foreground/10")} />
-              ) : (
-                <Fingerprint className={cn("w-12 h-12 transition-all duration-500", isEnrolling ? "text-primary" : "text-muted-foreground/10")} />
-              )}
-              
-              {isEnrolling && (
-                <>
-                  <div className="absolute top-1/4 left-1/4 right-1/4 h-0.5 bg-primary/50 animate-scan-line z-30" />
-                  <div className="absolute inset-0 bg-gradient-to-b from-primary/20 to-transparent animate-pulse rounded-[36px] z-10" />
-                </>
-              )}
-            </div>
-          </div>
         </div>
 
-        <div className="space-y-4 pt-8 relative z-10">
-          <button 
-            onClick={handleEnroll}
-            disabled={isEnrolling}
-            className="w-full h-16 rounded-2xl bg-primary text-primary-foreground flex items-center justify-center gap-3 font-bold shadow-glow hover:opacity-95 active:scale-[0.98] transition-all"
+        <div className="space-y-4 relative z-10">
+          <button
+            onClick={handleEnable}
+            className="w-full h-16 rounded-[28px] bg-primary text-primary-foreground font-display font-black uppercase tracking-[0.2em] shadow-glow flex items-center justify-center gap-3 active:scale-95 transition-all"
           >
-            {isEnrolling ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                {t('Authenticating...')}
-              </>
-            ) : (
-              <>
-                <ShieldCheck className="w-5 h-5" />
-                {t('Enable')} {bioType === 'face' ? t('Face ID') : t('Touch ID')}
-              </>
-            )}
+            Enable {type === "face" ? "Face ID" : "Touch ID"}
+            <ChevronRight className="w-5 h-5" />
           </button>
-          <button 
-            onClick={handleSkip}
-            className="w-full h-10 flex items-center justify-center text-muted-foreground text-xs font-semibold hover:text-foreground transition-colors mb-4"
+          
+          <button
+            onClick={() => navigate("/onboarding/pin")}
+            className="w-full h-12 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground hover:text-primary transition-colors"
           >
-            {t('Skip for now')}
+            I'll do it later
           </button>
         </div>
-
-        <BiometricPrompt
-          isOpen={showPrompt}
-          onClose={handleClosePrompt}
-          onSuccess={handleBiometricSuccess}
-          mode="enroll"
-          type={bioType}
-        />
       </div>
     </PhoneShell>
   );

@@ -140,13 +140,14 @@ export interface Transaction {
   amount: number;
   time: string;
   shielded?: boolean;
+  status?: "success" | "blocked" | "failed";
 }
 
 export const TRANSACTIONS: Transaction[] = [
   { id: "t1", name: "Priya Mehta", type: "sent", amount: 450, time: "Today, 2:14 PM", shielded: true },
   { id: "t2", name: "Salary — Acme Corp", type: "received", amount: 84000, time: "Yesterday, 10:02 AM" },
   { id: "t3", name: "Aarav Sharma", type: "sent", amount: 1200, time: "Yesterday, 8:30 PM", shielded: true },
-  { id: "t4", name: "Blocked: Fake KYC", type: "sent", amount: 1, time: "2 days ago", shielded: true },
+  { id: "t4", name: "Blocked: Fake KYC", type: "sent", amount: 1, time: "2 days ago", shielded: true, status: "blocked" },
   { id: "t5", name: "Mom", type: "sent", amount: 5000, time: "3 days ago", shielded: true },
 ];
 

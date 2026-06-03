@@ -65,10 +65,18 @@ const Home = () => {
           </div>
         </div>
         <div className="flex gap-2">
-          <button className="p-3 rounded-2xl bg-secondary/50 text-muted-foreground hover:bg-secondary transition-all">
+          <button 
+            onClick={() => navigate("/history")}
+            className="p-3 rounded-2xl bg-secondary/50 text-muted-foreground hover:bg-secondary transition-all active:scale-90"
+            title="Security Alerts"
+          >
             <Bell className="w-5 h-5" />
           </button>
-          <button className="p-3 rounded-2xl bg-secondary/50 text-muted-foreground hover:bg-secondary transition-all">
+          <button 
+            onClick={() => navigate("/shield")}
+            className="p-3 rounded-2xl bg-secondary/50 text-muted-foreground hover:bg-secondary transition-all active:scale-90"
+            title="AI Sentinel Insights"
+          >
             <Sparkles className="w-5 h-5" />
           </button>
         </div>

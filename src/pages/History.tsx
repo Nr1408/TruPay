@@ -12,28 +12,47 @@ const History = () => {
   const [search, setSearch] = useState("");
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
+  const [activeFilter, setActiveFilter] = useState<"all" | "sent" | "received" | "flagged">("all");
+  const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
     setTransactions(getTransactions());
   }, []);
 
-  const filtered = transactions.filter(tx => 
-    tx.name.toLowerCase().includes(search.toLowerCase())
-  );
+  const isBlocked = (tx: Transaction) => 
+    tx.status?.toLowerCase() === "blocked" || 
+    tx.status?.toLowerCase() === "failed" ||
+    tx.name.toLowerCase().includes("blocked") ||
+    tx.name.toLowerCase().includes("fake");
+
+  const filtered = transactions.filter(tx => {
+    const matchesSearch = tx.name.toLowerCase().includes(search.toLowerCase());
+    
+    if (activeFilter === "all") return matchesSearch;
+    if (activeFilter === "sent") return matchesSearch && tx.type === "sent" && !isBlocked(tx);
+    if (activeFilter === "received") return matchesSearch && tx.type === "received" && !isBlocked(tx);
+    if (activeFilter === "flagged") return matchesSearch && isBlocked(tx);
+    
+    return matchesSearch;
+  });
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     toast.success("Transaction ID Copied");
   };
 
-  const isBlocked = (tx: Transaction) => 
-    tx.status?.toLowerCase() === "blocked" || tx.status?.toLowerCase() === "failed";
+  const FILTERS = [
+    { id: "all", label: "All" },
+    { id: "sent", label: "Sent" },
+    { id: "received", label: "Received" },
+    { id: "flagged", label: "Flagged", icon: <ShieldAlert className="w-3 h-3" /> }
+  ] as const;
 
   return (
     <PhoneShell>
       <div className="flex flex-col h-full bg-background select-none">
         {/* Header */}
-        <div className="shrink-0 px-6 pt-10 pb-6 bg-background/80 backdrop-blur-xl z-20 border-b border-border/50">
+        <div className="shrink-0 px-6 pt-10 pb-4 bg-background z-20">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-4">
               <button 
@@ -44,20 +63,48 @@ const History = () => {
               </button>
               <h1 className="text-xl font-display font-black">History</h1>
             </div>
-            <button className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center">
+            <button 
+              onClick={() => setShowFilters(!showFilters)}
+              className={cn(
+                "w-10 h-10 rounded-full flex items-center justify-center transition-all",
+                showFilters ? "bg-primary text-white shadow-glow" : "bg-primary/10 text-primary hover:bg-primary/20"
+              )}
+            >
               <Filter className="w-4 h-4" />
             </button>
           </div>
 
-          <div className="relative group">
+          <div className="relative group mb-4">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
             <input 
               type="text"
-              placeholder="Search by name or UPI ID..."
+              placeholder="Search history..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full h-12 bg-secondary/50 border-none rounded-2xl pl-11 pr-4 text-sm focus:ring-2 focus:ring-primary/20 focus:bg-background transition-all"
             />
+          </div>
+
+          {/* Expandable Filter Bar */}
+          <div className={cn(
+            "flex overflow-hidden transition-all duration-300 gap-2 no-scrollbar overflow-x-auto",
+            showFilters ? "h-12 opacity-100 mb-2" : "h-0 opacity-0 mb-0"
+          )}>
+            {FILTERS.map((f) => (
+              <button
+                key={f.id}
+                onClick={() => setActiveFilter(f.id)}
+                className={cn(
+                  "shrink-0 px-5 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 border",
+                  activeFilter === f.id 
+                    ? "bg-primary border-primary text-white shadow-glow" 
+                    : "bg-secondary border-transparent text-muted-foreground hover:bg-secondary/80"
+                )}
+              >
+                {f.icon}
+                {f.label}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -67,8 +114,8 @@ const History = () => {
             <div 
               key={tx.id}
               onClick={() => setSelectedTx(tx)}
-              className="flex items-center justify-between p-4 rounded-3xl bg-card border border-border/50 hover:border-primary/30 hover:bg-primary/5 transition-all cursor-pointer animate-in fade-in slide-in-from-bottom-4 duration-500"
-              style={{ animationDelay: `${i * 50}ms` }}
+              className="flex items-center justify-between p-4 rounded-3xl bg-card border border-border/50 hover:border-primary/30 hover:bg-primary/5 transition-all cursor-pointer animate-in fade-in duration-500"
+              style={{ animationDelay: `${i * 30}ms` }}
             >
               <div className="flex items-center gap-4">
                 <div className={cn(
@@ -108,8 +155,9 @@ const History = () => {
 
           {filtered.length === 0 && (
             <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-              <Search className="w-12 h-12 opacity-10 mb-4" />
-              <p className="text-sm font-medium">No transactions found</p>
+              <ShieldAlert className="w-12 h-12 opacity-10 mb-4" />
+              <p className="text-sm font-bold">No results found</p>
+              <p className="text-[10px] font-medium opacity-50 px-10 text-center mt-2">Try adjusting your filters to see more transaction history.</p>
             </div>
           )}
         </div>
@@ -117,15 +165,12 @@ const History = () => {
         {/* Transaction Detail Sheet */}
         {selectedTx && (
           <div className="fixed inset-0 z-[100] flex flex-col justify-end">
-            {/* Backdrop */}
             <div 
               className="absolute inset-0 bg-background/60 backdrop-blur-sm animate-in fade-in duration-300"
               onClick={() => setSelectedTx(null)}
             />
             
-            {/* Sheet */}
-            <div className="relative w-full max-w-[440px] mx-auto bg-background rounded-t-[40px] border-t border-white/10 shadow-2xl p-8 animate-in slide-in-from-bottom duration-500">
-              {/* Handle */}
+            <div className="relative w-full max-w-[440px] mx-auto bg-background rounded-t-[40px] border-t border-white/10 shadow-2xl p-8 animate-in fade-in duration-500">
               <div className="absolute top-3 left-1/2 -translate-x-1/2 w-12 h-1.5 bg-muted rounded-full" />
               
               <button 

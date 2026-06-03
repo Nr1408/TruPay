@@ -32,7 +32,7 @@ const DEFAULT_SCENARIO: RiskScenario = {
 };
 
 // Flask Feedback Endpoint
-const FEEDBACK_URL = "http://10.10.37.139:5000/feedback";
+const FEEDBACK_URL = "http://192.168.29.184:5000/feedback";
 
 const Risk = () => {
   const navigate = useNavigate();
@@ -139,14 +139,8 @@ const Risk = () => {
         )}
 
         {/* Header */}
-        <header className="flex items-center gap-4 mb-8">
-          <button
-            onClick={() => navigate(-1)}
-            className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <h1 className="text-xl font-display font-black">Risk Analysis</h1>
+        <header className="flex items-center justify-center pt-4 mb-8">
+          <h1 className="text-xl font-display font-black uppercase tracking-widest text-muted-foreground/50">Risk Report</h1>
         </header>
 
         {/* Threat Level */}
@@ -213,7 +207,7 @@ const Risk = () => {
               Report & Block User
             </button>
             <button
-              onClick={() => navigate(-1)}
+              onClick={() => navigate("/home", { replace: true })}
               className="w-full py-5 rounded-[28px] bg-secondary text-foreground font-display font-black text-lg hover:bg-secondary/80 transition-all active:scale-[0.98]"
             >
               I want to cancel

@@ -1,19 +1,74 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Moon, Sun, Bell, Shield, User, ChevronRight, Lock, HelpCircle } from "lucide-react";
+import { 
+  ArrowLeft, Moon, Sun, Bell, Shield, User, ChevronRight, Lock, 
+  HelpCircle, Sparkles, Activity, Cloud, ScanFace, Fingerprint, CheckCircle2 
+} from "lucide-react";
 import { PhoneShell } from "@/components/PhoneShell";
 import { getTheme, setTheme, Theme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
+import { getBiometricSettings, setBiometricSettings, isBiometricAvailable } from "@/lib/biometrics";
+import { FaceIdScanner } from "@/components/FaceIdScanner";
+import { toast } from "sonner";
 
 const Settings = () => {
   const navigate = useNavigate();
   const [theme, setAppTheme] = useState<Theme>(getTheme());
+  
+  // Biometric States
+  const [biometricSettings, setBioSettings] = useState(getBiometricSettings());
+  const [showScanner, setShowScanner] = useState(false);
+  const [selectedBioType, setSelectedBioType] = useState<"face" | "fingerprint">(biometricSettings.type || "face");
+
+  // AI Settings States
+  const [aiProtection, setAiProtection] = useState(true);
+  const [neuralLearning, setNeuralLearning] = useState(true);
 
   const toggleTheme = () => {
     const newTheme = theme === "light" ? "dark" : "light";
     setAppTheme(newTheme);
     setTheme(newTheme);
   };
+
+  const handleToggleBiometrics = () => {
+    const nextState = !biometricSettings.enabled;
+    const newSettings = { ...biometricSettings, enabled: nextState };
+    setBiometricSettings(newSettings);
+    setBioSettings(newSettings);
+    
+    if (nextState) {
+      toast.success(`${selectedBioType === "face" ? "Face ID" : "Touch ID"} enabled! 🛡️`);
+    } else {
+      toast.info("Biometric lock disabled. 🔓");
+    }
+  };
+
+  const handleEnableBiometrics = async () => {
+    if (selectedBioType === "face") {
+      setShowScanner(true);
+    } else {
+      const { registerBiometric } = await import("@/lib/biometrics");
+      const success = await registerBiometric("fingerprint");
+      if (success) {
+        const newSettings = { enabled: true, type: "fingerprint" as const };
+        setBiometricSettings(newSettings);
+        setBioSettings(newSettings);
+        toast.success("Touch ID enabled successfully! 🛡️");
+      }
+    }
+  };
+
+  const onScannerSuccess = () => {
+    setShowScanner(false);
+    const newSettings = { enabled: true, type: "face" as const };
+    setBiometricSettings(newSettings);
+    setBioSettings(newSettings);
+    toast.success("Face ID configured via Sentinel Vision! 🛡️");
+  };
+
+  if (showScanner) {
+    return <FaceIdScanner onSuccess={onScannerSuccess} onCancel={() => setShowScanner(false)} />;
+  }
 
   return (
     <PhoneShell>
@@ -31,6 +86,117 @@ const Settings = () => {
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto no-scrollbar px-6 space-y-8 pb-10">
+          
+          {/* Security & Biometrics Section */}
+          <section className="space-y-4">
+            <div className="flex items-center justify-between px-2">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">Security</p>
+              <div className="flex items-center gap-1.5">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Active</span>
+              </div>
+            </div>
+            
+            <div className="bg-card border border-border/50 rounded-[32px] overflow-hidden shadow-sm divide-y divide-border/30">
+              {/* Real-time Protection */}
+              <div 
+                onClick={() => setAiProtection(!aiProtection)}
+                className="flex items-center justify-between p-5 hover:bg-secondary/30 transition-all cursor-pointer"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
+                    <Shield className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold">Real-time Protection</p>
+                    <p className="text-[10px] text-muted-foreground font-medium">Auto-block suspicious UPI IDs</p>
+                  </div>
+                </div>
+                <Toggle active={aiProtection} />
+              </div>
+
+              {/* Neural Pattern Recognition */}
+              <div 
+                onClick={() => setNeuralLearning(!neuralLearning)}
+                className="flex items-center justify-between p-5 hover:bg-secondary/30 transition-all cursor-pointer"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
+                    <Sparkles className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold">Neural Pattern Recognition</p>
+                    <p className="text-[10px] text-muted-foreground font-medium">ML-driven behavior analysis</p>
+                  </div>
+                </div>
+                <Toggle active={neuralLearning} />
+              </div>
+
+              {/* Integrated Biometric Setup */}
+              <div className="p-6 space-y-6 bg-primary/5">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
+                      <Lock className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold">Biometric Vault</p>
+                      <p className="text-[10px] text-muted-foreground font-medium">Secure app entry & payments</p>
+                    </div>
+                  </div>
+                  <div 
+                    onClick={handleToggleBiometrics}
+                    className="cursor-pointer"
+                  >
+                    <Toggle active={biometricSettings.enabled} />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => setSelectedBioType("face")}
+                    className={cn(
+                      "p-3 rounded-2xl border transition-all flex flex-col items-center gap-1.5",
+                      selectedBioType === "face" ? "bg-primary/10 border-primary" : "bg-background/50 border-transparent"
+                    )}
+                  >
+                    <ScanFace className={cn("w-6 h-6", selectedBioType === "face" ? "text-primary" : "text-muted-foreground")} />
+                    <span className="text-[9px] font-bold uppercase tracking-widest">Face ID</span>
+                  </button>
+                  <button
+                    onClick={() => setSelectedBioType("fingerprint")}
+                    className={cn(
+                      "p-3 rounded-2xl border transition-all flex flex-col items-center gap-1.5",
+                      selectedBioType === "fingerprint" ? "bg-primary/10 border-primary" : "bg-background/50 border-transparent"
+                    )}
+                  >
+                    <Fingerprint className={cn("w-6 h-6", selectedBioType === "fingerprint" ? "text-primary" : "text-muted-foreground")} />
+                    <span className="text-[9px] font-bold uppercase tracking-widest">Touch ID</span>
+                  </button>
+                </div>
+
+                <button
+                  onClick={handleEnableBiometrics}
+                  className={cn(
+                    "w-full py-3 rounded-xl font-black uppercase tracking-[0.2em] text-[10px] transition-all flex items-center justify-center gap-2",
+                    biometricSettings.enabled && biometricSettings.type === selectedBioType
+                      ? "bg-emerald-500 text-white"
+                      : "bg-primary text-white shadow-glow"
+                  )}
+                >
+                  {biometricSettings.enabled && biometricSettings.type === selectedBioType ? (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" />
+                      Vault Secured
+                    </>
+                  ) : (
+                    <>Configure {selectedBioType === "face" ? "Face ID" : "Touch ID"}</>
+                  )}
+                </button>
+              </div>
+            </div>
+          </section>
+
           {/* Appearance Section */}
           <section className="space-y-4">
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground opacity-50 px-2">Appearance</p>
@@ -51,41 +217,14 @@ const Settings = () => {
                     <p className="text-[10px] text-muted-foreground font-medium">Toggle app theme</p>
                   </div>
                 </div>
-                <div className={cn(
-                  "w-12 h-6 rounded-full p-1 transition-all duration-300",
-                  theme === "dark" ? "bg-primary" : "bg-muted"
-                )}>
-                  <div className={cn(
-                    "w-4 h-4 rounded-full bg-white transition-all duration-300 transform",
-                    theme === "dark" ? "translate-x-6" : "translate-x-0"
-                  )} />
-                </div>
+                <Toggle active={theme === "dark"} />
               </div>
-            </div>
-          </section>
-
-          {/* Security Section */}
-          <section className="space-y-4">
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground opacity-50 px-2">Security</p>
-            <div className="bg-card border border-border/50 rounded-[32px] overflow-hidden shadow-sm divide-y divide-border/50">
-              <SettingItem 
-                icon={<Shield className="w-5 h-5" />} 
-                title="AI Shield Status" 
-                subtitle="High-protection enabled" 
-                color="text-emerald-500 bg-emerald-500/10" 
-              />
-              <SettingItem 
-                icon={<Lock className="w-5 h-5" />} 
-                title="Biometric Lock" 
-                subtitle="On payment & launch" 
-                color="text-primary bg-primary/10" 
-              />
             </div>
           </section>
 
           {/* General Section */}
           <section className="space-y-4">
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground opacity-50 px-2">General</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground opacity-50 px-2">Account</p>
             <div className="bg-card border border-border/50 rounded-[32px] overflow-hidden shadow-sm divide-y divide-border/50">
               <SettingItem 
                 icon={<User className="w-5 h-5" />} 
@@ -99,12 +238,6 @@ const Settings = () => {
                 subtitle="Transaction & Fraud alerts" 
                 color="text-zinc-500 bg-zinc-100" 
               />
-              <SettingItem 
-                icon={<HelpCircle className="w-5 h-5" />} 
-                title="Support" 
-                subtitle="Help center & Report" 
-                color="text-zinc-500 bg-zinc-100" 
-              />
             </div>
           </section>
 
@@ -114,8 +247,20 @@ const Settings = () => {
   );
 };
 
-const SettingItem = ({ icon, title, subtitle, color }: { icon: any, title: string, subtitle: string, color: string }) => (
-  <div className="flex items-center justify-between p-5 hover:bg-secondary/30 transition-all cursor-pointer group">
+const Toggle = ({ active }: { active: boolean }) => (
+  <div className={cn(
+    "w-12 h-6 rounded-full p-1 transition-all duration-300",
+    active ? "bg-primary" : "bg-muted"
+  )}>
+    <div className={cn(
+      "w-4 h-4 rounded-full bg-white transition-all duration-300 transform",
+      active ? "translate-x-6" : "translate-x-0"
+    )} />
+  </div>
+);
+
+const SettingItem = ({ icon, title, subtitle, color, onClick }: { icon: any, title: string, subtitle: string, color: string, onClick?: () => void }) => (
+  <div onClick={onClick} className="flex items-center justify-between p-5 hover:bg-secondary/30 transition-all cursor-pointer group">
     <div className="flex items-center gap-4">
       <div className={cn("w-10 h-10 rounded-2xl flex items-center justify-center transition-colors", color)}>
         {icon}

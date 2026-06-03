@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { generateFeatures, checkFraud } from "@/services/fraudService";
 import { BiometricPrompt } from "@/components/BiometricPrompt";
 import { UpiPinPad } from "@/components/UpiPinPad";
+import { NativePermissionDialog } from "@/components/NativePermissionDialog";
 import { updateBalance } from "@/lib/upi";
 import { canMakePayment, getDailyLimit, getTodaySpent } from "@/lib/limits";
 import { addTransaction } from "@/lib/transactions";
@@ -44,6 +45,10 @@ const Pay = () => {
   const [selectedBank, setSelectedBank] = useState(0);
   const [viewingBalance, setViewingBalance] = useState<number | null>(null);
   const [fraudMode, setFraudMode] = useState<"live" | "simulated">("live");
+  const [showLocationPermission, setShowLocationPermission] = useState(false);
+  const [hasLocationPermission, setHasLocationPermission] = useState(
+    localStorage.getItem("trupay_location_permission") === "granted"
+  );
 
   const banks = USER_BANKS;
 
@@ -111,6 +116,15 @@ const Pay = () => {
       return;
     }
 
+    if (!hasLocationPermission) {
+      setShowLocationPermission(true);
+      return;
+    }
+
+    executePaySequence();
+  };
+
+  const executePaySequence = async () => {
     setChecking(true);
     setPinMode("pay");
     
@@ -341,6 +355,23 @@ const Pay = () => {
         </div>
 
         <UpiPinPad isOpen={showPinPad} onClose={() => setShowPinPad(false)} onSuccess={onPinSuccess} payeeName={contact.name} amount={numericAmount} />
+
+        <NativePermissionDialog
+          isOpen={showLocationPermission}
+          type="location"
+          onGrant={() => {
+            localStorage.setItem("trupay_location_permission", "granted");
+            setHasLocationPermission(true);
+            setShowLocationPermission(false);
+            executePaySequence();
+          }}
+          onDeny={() => {
+            setShowLocationPermission(false);
+            toast.error("Location Required", {
+              description: "TruPay requires location to verify payment security."
+            });
+          }}
+        />
 
         <AlertDialog open={showLimitAlert} onOpenChange={setShowLimitAlert}>
           <AlertDialogContent className="rounded-[40px] max-w-[90%] w-[360px] p-8 bg-zinc-900 border border-white/10 shadow-2xl animate-in zoom-in-95 duration-300">

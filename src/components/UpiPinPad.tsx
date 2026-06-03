@@ -27,7 +27,7 @@ export const UpiPinPad: React.FC<UpiPinPadProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      const savedPin = localStorage.getItem("trupay_upi_pin");
+      const savedPin = localStorage.getItem("trupay_pin");
       setIsSetting(!savedPin);
       setPin("");
       setConfirmPin("");
@@ -35,6 +35,16 @@ export const UpiPinPad: React.FC<UpiPinPadProps> = ({
       setError(false);
     }
   }, [isOpen]);
+
+  // AUTO-SUBMIT once 4 digits are entered
+  useEffect(() => {
+    if (pin.length === pinLength) {
+      const timer = setTimeout(() => {
+        handleSubmit();
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [pin]);
 
   const handlePress = (num: string) => {
     if (error) setError(false);
@@ -48,18 +58,19 @@ export const UpiPinPad: React.FC<UpiPinPadProps> = ({
   };
 
   const handleSubmit = () => {
-    if (pin.length !== pinLength) return;
+    const currentPin = pin;
+    if (currentPin.length !== pinLength) return;
 
     if (isSetting) {
       if (!isConfirming) {
-        setConfirmPin(pin);
+        setConfirmPin(currentPin);
         setPin("");
         setIsConfirming(true);
       } else {
-        if (pin === confirmPin) {
-          localStorage.setItem("trupay_upi_pin", pin);
+        if (currentPin === confirmPin) {
+          localStorage.setItem("trupay_pin", currentPin);
           toast.success("UPI PIN Set Successfully!");
-          onSuccess(pin);
+          onSuccess(currentPin);
         } else {
           setError(true);
           setPin("");
@@ -68,9 +79,9 @@ export const UpiPinPad: React.FC<UpiPinPadProps> = ({
         }
       }
     } else {
-      const savedPin = localStorage.getItem("trupay_upi_pin");
-      if (pin === savedPin) {
-        onSuccess(pin);
+      const savedPin = localStorage.getItem("trupay_pin");
+      if (currentPin === savedPin) {
+        onSuccess(currentPin);
       } else {
         setError(true);
         setPin("");

@@ -79,14 +79,29 @@ const Login = () => {
       }
 
       if (user) {
-        // Save name to localStorage for Home page
-        localStorage.setItem("trupay_user_name", user.displayName || "User");
-        toast.success(`Welcome, ${user.displayName}!`);
-        navigate("/onboarding/biometric");
+        // Check cloud for existing profile
+        const { restoreProfileFromCloud } = await import("@/lib/userProfile");
+        const existing = await restoreProfileFromCloud();
+        
+        if (existing && existing.name) {
+          localStorage.setItem("trupay_user_name", existing.name);
+          toast.success(`Welcome back, ${existing.name}!`);
+          navigate("/home", { replace: true });
+        } else {
+          localStorage.setItem("trupay_user_name", user.displayName || "User");
+          toast.success(`Welcome, ${user.displayName}!`);
+          navigate("/onboarding/biometric");
+        }
       }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Google sign-in failed.";
-      toast.error(message);
+    } catch (error: any) {
+      if (error?.code === 'auth/popup-blocked' || error?.message?.includes('Cross-Origin-Opener-Policy')) {
+        toast.error("Popup Blocked", {
+          description: "Please enable popups or try a different browser for Google login."
+        });
+      } else {
+        const message = error instanceof Error ? error.message : "Google sign-in failed.";
+        toast.error(message);
+      }
     } finally {
       setLoading(null);
     }
@@ -134,9 +149,22 @@ const Login = () => {
 
     setLoading("otp");
     
-    setTimeout(() => {
-      setShowNameInput(true);
-      toast.success("Identity Verified Successfully! 🛡️");
+    setTimeout(async () => {
+      // 1. Check if user already exists in cloud
+      const { restoreProfileFromCloud } = await import("@/lib/userProfile");
+      const existingProfile = await restoreProfileFromCloud();
+
+      if (existingProfile && existingProfile.name) {
+        // RETURNING USER: Jump straight to home/vault
+        toast.success(`Welcome back, ${existingProfile.name}! 🛡️`);
+        localStorage.setItem("trupay_user_name", existingProfile.name);
+        window.dispatchEvent(new Event("storage"));
+        navigate("/home", { replace: true });
+      } else {
+        // NEW USER: Ask for name
+        setShowNameInput(true);
+        toast.success("Identity Verified Successfully! 🛡️");
+      }
       setLoading(null);
     }, 800);
   };
@@ -153,12 +181,18 @@ const Login = () => {
     }
   };
 
-  const handleSaveName = () => {
+  const handleSaveName = async () => {
     if (!userName.trim()) {
       toast.error("Please enter your name.");
       return;
     }
-    localStorage.setItem("trupay_user_name", userName.trim());
+    const name = userName.trim();
+    localStorage.setItem("trupay_user_name", name);
+    
+    // Save to Cloud
+    const { saveProfileToCloud } = await import("@/lib/userProfile");
+    await saveProfileToCloud({ name });
+    
     window.dispatchEvent(new Event("storage")); // Wake up the auth guard
     navigate("/onboarding/biometric");
   };
@@ -182,8 +216,8 @@ const Login = () => {
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -ml-32 -mb-32" />
 
         <div className="flex-1 flex flex-col items-center justify-center text-center relative z-10 w-full">
-          <div className="w-24 h-24 rounded-[32px] bg-primary flex items-center justify-center mb-12 shadow-glow animate-in zoom-in duration-700">
-            <span className="text-primary-foreground font-display text-5xl font-bold">T</span>
+          <div className="w-24 h-24 rounded-[32px] overflow-hidden mb-12 shadow-glow animate-in zoom-in duration-700">
+            <img src="/trupay-logo.png" alt="TruPay" className="w-full h-full object-cover" />
           </div>
           
           <h1 className="text-4xl md:text-5xl font-display font-bold tracking-tight mb-6 leading-[1.1] animate-in fade-in duration-700 delay-100">
@@ -240,9 +274,9 @@ const Login = () => {
                     <div className="w-5 h-5 flex items-center justify-center">
                       <svg viewBox="0 0 24 24" className="w-full h-full">
                         <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
-                        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.66l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                        <path d="M12 23c3.13 0 5.74-1.04 7.65-2.81l-3.57-2.77c-1.02.68-2.33 1.09-4.08 1.09-3.13 0-5.78-2.12-6.73-4.96l-3.69 2.87C3.51 20.25 7.45 23 12 23z" fill="#34A853"/>
+                        <path d="M5.27 13.55c-.25-.75-.39-1.55-.39-2.38s.14-1.63.39-2.38l-3.69-2.87C.86 7.43 0 9.12 0 10.92s.86 3.49 2.37 5.5l3.69-2.87z" fill="#FBBC05"/>
+                        <path d="M12 4.19c1.7 0 3.22.58 4.42 1.71l3.32-3.32C17.74 1.13 15.13 0 12 0 7.45 0 3.51 2.75 1.58 6.77L5.27 9.64c.95-2.84 3.6-4.96 6.73-4.96z" fill="#EA4335"/>
                       </svg>
                     </div>
                     {t("Continue with Google")}

@@ -17,6 +17,7 @@ import Rewards from "./pages/Rewards.tsx";
 import Settings from "./pages/Settings.tsx";
 import Login from "./pages/Login.tsx";
 import OnboardingBiometric from "./pages/OnboardingBiometric.tsx";
+import OnboardingPhone from "./pages/OnboardingPhone.tsx";
 import OnboardingBank from "./pages/OnboardingBank.tsx";
 import OnboardingPin from "./pages/OnboardingPin.tsx";
 import NotFound from "./pages/NotFound.tsx";
@@ -66,6 +67,7 @@ const App = () => {
             {/* Onboarding Steps (Require Name Auth but not full PIN/Biometric lock yet) */}
             <Route element={<RequireAuth><Outlet /></RequireAuth>}>
               <Route path="/onboarding/biometric" element={<OnboardingBiometric />} />
+              <Route path="/onboarding/phone" element={<OnboardingPhone />} />
               <Route path="/onboarding/bank" element={<OnboardingBank />} />
               <Route path="/onboarding/pin" element={<OnboardingPin />} />
             </Route>

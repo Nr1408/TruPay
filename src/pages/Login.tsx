@@ -24,6 +24,14 @@ const Login = () => {
   const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
   const nativePhoneListenersRef = useRef<Array<{ remove: () => Promise<void> }>>([]);
 
+  const phoneAuthErrorMessage = (error: any) => {
+    const raw = String(error?.message || error || "");
+    if (raw.includes("BILLING_NOT_ENABLED")) {
+      return "Firebase Phone Auth billing is not enabled. Enable billing for the TruPay Firebase project, or configure a Firebase test phone number for development.";
+    }
+    return raw || "Check Firebase Phone Auth settings.";
+  };
+
   useEffect(() => {
     return () => {
       if (recaptchaVerifierRef.current) {
@@ -166,7 +174,7 @@ const Login = () => {
         }));
         nativePhoneListenersRef.current.push(await FirebaseAuthentication.addListener("phoneVerificationFailed", (event) => {
           setLoading(null);
-          toast.error("OTP could not be sent", { description: event.message || "Check Firebase Phone Auth settings." });
+          toast.error("OTP could not be sent", { description: phoneAuthErrorMessage(event) });
         }));
         await FirebaseAuthentication.signInWithPhoneNumber({ phoneNumber: normalizedPhone });
       } else {
@@ -178,7 +186,7 @@ const Login = () => {
       }
     } catch (error: any) {
       setLoading(null);
-      toast.error("Could not send OTP", { description: error?.message || "Check Firebase Phone Auth configuration." });
+      toast.error("Could not send OTP", { description: phoneAuthErrorMessage(error) });
     }
   };
 

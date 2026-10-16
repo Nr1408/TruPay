@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
-import { Fingerprint, ScanFace, X, ShieldCheck, ShieldAlert, Camera } from "lucide-react";
+import React, { useState, useEffect, useCallback } from "react";
+import { Fingerprint, X, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
@@ -14,7 +14,7 @@ interface BiometricPromptProps {
   onSuccess: () => void;
   /** "enroll" = register new credential, "verify" = authenticate with stored credential */
   mode?: "enroll" | "verify";
-  type?: "face" | "fingerprint";
+  type?: "fingerprint";
 }
 
 export const BiometricPrompt: React.FC<BiometricPromptProps> = ({
@@ -22,53 +22,15 @@ export const BiometricPrompt: React.FC<BiometricPromptProps> = ({
   onClose,
   onSuccess,
   mode = "verify",
-  type = "face",
+  type = "fingerprint",
 }) => {
   const [status, setStatus] = useState<"idle" | "scanning" | "success" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState("");
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-
-  const stopCamera = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-  };
-
-  const startCamera = async () => {
-    if (type !== 'face') return;
-    try {
-      // Explicitly request native permissions first
-      const { Camera } = await import('@capacitor/camera');
-      const perm = await Camera.requestPermissions({ permissions: ['camera'] });
-      
-      if (perm.camera !== 'granted') {
-        setErrorMessage("Camera permission is required for Neural Face Scan.");
-        setStatus("error");
-        return;
-      }
-
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: "user" },
-        audio: false 
-      });
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-    } catch (err) {
-      console.warn("Camera access denied or unavailable", err);
-    }
-  };
-
   const run = useCallback(async () => {
     setErrorMessage("");
     setStatus("scanning");
 
     try {
-      // The OS prompt is the only source of biometric truth. The camera is not
-      // a face-recognition engine and must never grant access by itself.
       const success = mode === "enroll"
         ? await registerBiometric(type)
         : await authenticateBiometric(type);
@@ -95,11 +57,10 @@ export const BiometricPrompt: React.FC<BiometricPromptProps> = ({
     if (!isOpen) {
       setStatus("idle");
       setErrorMessage("");
-      stopCamera();
       return;
     }
     run();
-    return () => stopCamera();
+    return;
   }, [isOpen, run]);
 
   if (!isOpen) return null;
@@ -150,28 +111,6 @@ export const BiometricPrompt: React.FC<BiometricPromptProps> = ({
             )}>
               {status === "success" ? (
                 <ShieldCheck className="w-20 h-20 text-white animate-in zoom-in duration-500" />
-              ) : type === "face" ? (
-                <div className="relative w-full h-full flex items-center justify-center">
-                  {/* Live Camera Feed */}
-                  <video 
-                    ref={videoRef}
-                    autoPlay 
-                    playsInline 
-                    muted
-                    className={cn(
-                      "absolute inset-0 w-full h-full object-cover grayscale transition-opacity duration-1000",
-                      status === "scanning" ? "opacity-80 brightness-150" : "opacity-0"
-                    )}
-                  />
-                  <div className="relative z-10">
-                    <ScanFace className={cn("w-20 h-20 transition-all duration-500", status === "scanning" ? "text-primary" : "text-white/20")} />
-                  </div>
-                  {status === "scanning" && (
-                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <div className="w-full h-0.5 bg-primary/60 animate-scan-line shadow-[0_0_20px_var(--primary)]" />
-                     </div>
-                  )}
-                </div>
               ) : (
                 <Fingerprint className={cn("w-20 h-20 transition-all duration-500", status === "scanning" ? "text-primary animate-pulse" : "text-white/20")} />
               )}

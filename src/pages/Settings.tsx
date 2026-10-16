@@ -2,13 +2,12 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
   ArrowLeft, Moon, Sun, Bell, Shield, User, ChevronRight, Lock, 
-  HelpCircle, Sparkles, Activity, Cloud, ScanFace, Fingerprint, CheckCircle2 
+  HelpCircle, Sparkles, Activity, Cloud, Fingerprint, CheckCircle2
 } from "lucide-react";
 import { PhoneShell } from "@/components/PhoneShell";
 import { getTheme, setTheme, Theme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { getBiometricSettings, setBiometricSettings, isBiometricAvailable } from "@/lib/biometrics";
-import { FaceIdScanner } from "@/components/FaceIdScanner";
 import { toast } from "sonner";
 
 const Settings = () => {
@@ -17,8 +16,6 @@ const Settings = () => {
   
   // Biometric States
   const [biometricSettings, setBioSettings] = useState(getBiometricSettings());
-  const [showScanner, setShowScanner] = useState(false);
-  const [selectedBioType, setSelectedBioType] = useState<"face" | "fingerprint">(biometricSettings.type || "face");
 
   // AI Settings States
   const [aiProtection, setAiProtection] = useState(true);
@@ -37,38 +34,22 @@ const Settings = () => {
     setBioSettings(newSettings);
     
     if (nextState) {
-      toast.success(`${selectedBioType === "face" ? "Face ID" : "Touch ID"} enabled! 🛡️`);
+      toast.success("Fingerprint enabled! 🛡️");
     } else {
       toast.info("Biometric lock disabled. 🔓");
     }
   };
 
   const handleEnableBiometrics = async () => {
-    if (selectedBioType === "face") {
-      setShowScanner(true);
-    } else {
-      const { registerBiometric } = await import("@/lib/biometrics");
-      const success = await registerBiometric("fingerprint");
-      if (success) {
-        const newSettings = { enabled: true, type: "fingerprint" as const };
-        setBiometricSettings(newSettings);
-        setBioSettings(newSettings);
-        toast.success("Touch ID enabled successfully! 🛡️");
-      }
+    const { registerBiometric } = await import("@/lib/biometrics");
+    const success = await registerBiometric("fingerprint");
+    if (success) {
+      const newSettings = { enabled: true, type: "fingerprint" as const };
+      setBiometricSettings(newSettings);
+      setBioSettings(newSettings);
+      toast.success("Fingerprint enabled successfully! 🛡️");
     }
   };
-
-  const onScannerSuccess = () => {
-    setShowScanner(false);
-    const newSettings = { enabled: true, type: "face" as const };
-    setBiometricSettings(newSettings);
-    setBioSettings(newSettings);
-    toast.success("Face ID configured via Sentinel Vision! 🛡️");
-  };
-
-  if (showScanner) {
-    return <FaceIdScanner onSuccess={onScannerSuccess} onCancel={() => setShowScanner(false)} />;
-  }
 
   return (
     <PhoneShell>
@@ -152,45 +133,27 @@ const Settings = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => setSelectedBioType("face")}
-                    className={cn(
-                      "p-3 rounded-2xl border transition-all flex flex-col items-center gap-1.5",
-                      selectedBioType === "face" ? "bg-primary/10 border-primary" : "bg-background/50 border-transparent"
-                    )}
-                  >
-                    <ScanFace className={cn("w-6 h-6", selectedBioType === "face" ? "text-primary" : "text-muted-foreground")} />
-                    <span className="text-[9px] font-bold uppercase tracking-widest">Face ID</span>
-                  </button>
-                  <button
-                    onClick={() => setSelectedBioType("fingerprint")}
-                    className={cn(
-                      "p-3 rounded-2xl border transition-all flex flex-col items-center gap-1.5",
-                      selectedBioType === "fingerprint" ? "bg-primary/10 border-primary" : "bg-background/50 border-transparent"
-                    )}
-                  >
-                    <Fingerprint className={cn("w-6 h-6", selectedBioType === "fingerprint" ? "text-primary" : "text-muted-foreground")} />
-                    <span className="text-[9px] font-bold uppercase tracking-widest">Touch ID</span>
-                  </button>
+                <div className="p-4 rounded-2xl border border-primary bg-primary/10 flex items-center gap-3">
+                  <Fingerprint className="w-6 h-6 text-primary" />
+                  <span className="text-[10px] font-bold uppercase tracking-widest">Fingerprint only</span>
                 </div>
 
                 <button
                   onClick={handleEnableBiometrics}
                   className={cn(
                     "w-full py-3 rounded-xl font-black uppercase tracking-[0.2em] text-[10px] transition-all flex items-center justify-center gap-2",
-                    biometricSettings.enabled && biometricSettings.type === selectedBioType
+                    biometricSettings.enabled
                       ? "bg-emerald-500 text-white"
                       : "bg-primary text-white shadow-glow"
                   )}
                 >
-                  {biometricSettings.enabled && biometricSettings.type === selectedBioType ? (
+                  {biometricSettings.enabled ? (
                     <>
                       <CheckCircle2 className="w-4 h-4" />
                       Vault Secured
                     </>
                   ) : (
-                    <>Configure {selectedBioType === "face" ? "Face ID" : "Touch ID"}</>
+                    <>Configure Fingerprint</>
                   )}
                 </button>
               </div>

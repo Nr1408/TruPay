@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "596224876345-6ar7en6q6192ligi7jv66jhrv8590v22.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.trupay.ai",
+            "certificate_hash": "700bd8bd389613249e4e66472f75b1583a8aa02b"
+          }
+        },
+        {
           "client_id": "596224876345-0htmngrmbfaoffs6ujp3auaposcf88c9.apps.googleusercontent.com",
           "client_type": 3
         }

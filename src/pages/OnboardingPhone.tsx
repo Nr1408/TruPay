@@ -27,23 +27,32 @@ const OnboardingPhone = () => {
     }
 
     setLoading(true);
-    
-    // Simulate cloud binding
-    setTimeout(async () => {
+
+    // Give the cloud write a bounded window. Firestore can remain pending
+    // indefinitely when the phone is offline or its rules reject the write;
+    // local onboarding should still be able to continue.
+    const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    try {
+      await wait(1500);
       localStorage.setItem("trupay_user_phone", cleanPhone);
-      
+
       // Save to Cloud
       try {
         const { saveProfileToCloud } = await import("@/lib/userProfile");
-        await saveProfileToCloud({ phone: cleanPhone });
+        await Promise.race([
+          saveProfileToCloud({ phone: cleanPhone }),
+          wait(8000),
+        ]);
       } catch (e) {
         console.warn("Cloud sync failed, continuing locally.");
       }
 
       toast.success("Mobile number linked to your vault! 🛡️");
-      setLoading(false);
       navigate("/onboarding/bank", { replace: true });
-    }, 1500);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

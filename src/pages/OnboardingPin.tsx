@@ -21,6 +21,12 @@ const OnboardingPin = () => {
 
   const pinLength = 4;
 
+  const withTimeout = <T,>(promise: Promise<T>, timeoutMs: number): Promise<T | null> =>
+    Promise.race([
+      promise,
+      new Promise<null>((resolve) => window.setTimeout(() => resolve(null), timeoutMs)),
+    ]);
+
   const handleNumber = (num: number) => {
     if (pin.length < pinLength) {
       setPin(prev => prev + num);
@@ -55,9 +61,10 @@ const OnboardingPin = () => {
       const credential = await createPinCredential(finalPin);
       await savePinCredential(credential);
       
-      // Save PIN to Cloud
+      // Sync the profile in the background without blocking onboarding when the
+      // device is offline or Firestore is temporarily unavailable.
       const { saveProfileToCloud } = await import("@/lib/userProfile");
-      await saveProfileToCloud(credential);
+      await withTimeout(saveProfileToCloud(credential), 8000);
       
       // Mark as already verified for this session
       sessionStorage.setItem("trupay_unlocked", "true");

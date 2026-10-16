@@ -69,7 +69,13 @@ const Login = () => {
       let user;
       if (isNative) {
         const { FirebaseAuthentication } = await import('@capacitor-firebase/authentication');
-        const result = await FirebaseAuthentication.signInWithGoogle();
+         // Keep the native Firebase session and exchange its ID token with
+         // the Firebase JS SDK below. Credential Manager is disabled here
+         // because some Android devices return the generic developer-error
+         // code from its newer path even when the Firebase app is configured.
+         const result = await FirebaseAuthentication.signInWithGoogle({
+           useCredentialManager: false,
+         });
         
         if (result.user && auth) {
           const { GoogleAuthProvider, signInWithCredential } = await import('firebase/auth');
@@ -77,7 +83,7 @@ const Login = () => {
           const userCredential = await signInWithCredential(auth, credential);
           user = userCredential.user;
         }
-      } else {
+       } else {
         const result = await signInWithPopup(auth, googleProvider);
         user = result.user;
       }
@@ -97,7 +103,13 @@ const Login = () => {
           navigate("/onboarding/biometric");
         }
       }
-    } catch (error: any) {
+     } catch (error: any) {
+       if (error?.code === "10" || error?.code === "28444" || error?.message?.includes("DEVELOPER_ERROR")) {
+         toast.error("Google login is not fully configured", {
+           description: "In Firebase, add the APK SHA-1/SHA-256 for com.trupay.ai, download google-services.json again, then rebuild.",
+         });
+         return;
+       }
       if (error?.code === 'auth/popup-blocked' || error?.message?.includes('Cross-Origin-Opener-Policy')) {
         toast.error("Popup Blocked", {
           description: "Please enable popups or try a different browser for Google login."
@@ -156,10 +168,10 @@ const Login = () => {
           setLoading(null);
           toast.error("OTP could not be sent", { description: event.message || "Check Firebase Phone Auth settings." });
         }));
-        await FirebaseAuthentication.signInWithPhoneNumber({ phoneNumber: normalized });
+        await FirebaseAuthentication.signInWithPhoneNumber({ phoneNumber: normalizedPhone });
       } else {
         const verifier = await getOrCreateRecaptchaVerifier();
-        const result = await signInWithPhoneNumber(auth, normalized, verifier);
+        const result = await signInWithPhoneNumber(auth, normalizedPhone, verifier);
         setConfirmationResult(result);
         setLoading(null);
         toast.success("OTP sent by Firebase SMS.");

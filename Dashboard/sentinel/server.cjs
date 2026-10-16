@@ -48,6 +48,14 @@ const server = http.createServer(async (request, response) => {
   if (request.url === "/latest" && request.method === "GET") {
     return latestTransaction ? send(response, 200, latestTransaction) : send(response, 204, null);
   }
+  if (request.url === "/feedback" && request.method === "POST") {
+    try {
+      await readJson(request);
+      return send(response, 200, { accepted: true });
+    } catch (error) {
+      return send(response, 400, { error: "Invalid JSON payload" });
+    }
+  }
   if ((request.url === "/predict" || request.url === "/transaction") && request.method === "POST") {
     try {
       const payload = await readJson(request);

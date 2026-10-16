@@ -21,6 +21,18 @@ android {
         targetCompatibility JavaVersion.VERSION_17
     }
     buildTypes {
+        debug {
+            // Use a TruPay-specific debug key. The machine-wide Android debug
+            // key is already registered to another Firebase project.
+            def trupayDebugKeystore = file('trupay-debug.keystore')
+            if (trupayDebugKeystore.exists()) {
+                signingConfig signingConfigs.debug
+                signingConfigs.debug.storeFile trupayDebugKeystore
+                signingConfigs.debug.storePassword 'trupaydebug'
+                signingConfigs.debug.keyAlias 'trupay-debug'
+                signingConfigs.debug.keyPassword 'trupaydebug'
+            }
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'

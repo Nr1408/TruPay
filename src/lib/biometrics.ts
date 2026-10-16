@@ -3,7 +3,7 @@ import { Capacitor } from '@capacitor/core';
 
 export interface BiometricSettings {
   enabled: boolean;
-  type: 'face' | 'fingerprint';
+  type: 'fingerprint';
 }
 
 const SETTINGS_KEY = 'trupay_biometric_settings';
@@ -12,12 +12,13 @@ export const getBiometricSettings = (): BiometricSettings => {
   const stored = localStorage.getItem(SETTINGS_KEY);
   if (stored) {
     try {
-      return JSON.parse(stored);
+      const parsed = JSON.parse(stored);
+      return { enabled: Boolean(parsed.enabled), type: "fingerprint" };
     } catch {
       // Fallback
     }
   }
-  return { enabled: false, type: 'face' };
+  return { enabled: false, type: 'fingerprint' };
 };
 
 export const setBiometricSettings = (settings: BiometricSettings) => {
@@ -36,20 +37,20 @@ export const isBiometricAvailable = async (): Promise<boolean> => {
     }
   }
   
-  // Browser camera/secure-context access is not biometric authentication.
+  // Browser environments do not provide native fingerprint authentication.
   return false;
 };
 
-export const registerBiometric = async (type: 'face' | 'fingerprint' = 'face'): Promise<boolean> => {
+export const registerBiometric = async (_type: 'fingerprint' = 'fingerprint'): Promise<boolean> => {
   const platform = Capacitor.getPlatform();
   
   if (platform !== 'web') {
     try {
       await NativeBiometric.verifyIdentity({
-        reason: `Register your ${type === 'face' ? 'Face ID' : 'Fingerprint'} for TruPay security`,
-        title: `${type === 'face' ? 'Face ID' : 'Fingerprint'} Enrollment`,
+        reason: "Register your fingerprint for TruPay security",
+        title: "Fingerprint Enrollment",
         subtitle: "Secure your payments",
-        description: `Use your ${type === 'face' ? 'face' : 'fingerprint'} to authorize payments instantly.`,
+        description: "Use your fingerprint to authorize payments instantly.",
         useFallback: false,
         maxAttempts: 3,
       });
@@ -64,16 +65,16 @@ export const registerBiometric = async (type: 'face' | 'fingerprint' = 'face'): 
   return false;
 };
 
-export const authenticateBiometric = async (type: 'face' | 'fingerprint' = 'face'): Promise<boolean> => {
+export const authenticateBiometric = async (_type: 'fingerprint' = 'fingerprint'): Promise<boolean> => {
   const platform = Capacitor.getPlatform();
   
   if (platform !== 'web') {
     try {
       await NativeBiometric.verifyIdentity({
-        reason: `Verify ${type === 'face' ? 'Face ID' : 'Fingerprint'} to authorize payment`,
-        title: `Confirm with ${type === 'face' ? 'Face ID' : 'Fingerprint'}`,
+        reason: "Verify your fingerprint to authorize payment",
+        title: "Confirm with Fingerprint",
         subtitle: "Biometric Verification",
-        description: `Please scan your ${type === 'face' ? 'face' : 'fingerprint'} to proceed.`,
+        description: "Please scan your fingerprint to proceed.",
         useFallback: false,
         maxAttempts: 3,
       });

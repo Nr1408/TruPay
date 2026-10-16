@@ -16,6 +16,7 @@ import { PhoneShell } from "@/components/PhoneShell";
 import { Contact } from "@/data/mockData";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { SENTINEL_API_URL } from "@/config";
 
 interface RiskScenario {
   scamType: string;
@@ -31,8 +32,7 @@ const DEFAULT_SCENARIO: RiskScenario = {
   attackFlow: ["Unusual transaction timing", "New recipient with no history", "Amount exceeds safe threshold"]
 };
 
-// Flask Feedback Endpoint
-const FEEDBACK_URL = "http://192.168.29.184:5000/feedback";
+const FEEDBACK_URL = `${SENTINEL_API_URL}/feedback`;
 
 const Risk = () => {
   const navigate = useNavigate();
@@ -57,7 +57,9 @@ const Risk = () => {
     
     try {
       // 1. Inform the server to LEARN this fraud pattern
-      await fetch(FEEDBACK_URL, {
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 8000);
+      const feedbackResponse = await fetch(FEEDBACK_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -65,11 +67,14 @@ const Risk = () => {
           scamType: scenario.scamType,
           amount: amount,
           features: [] 
-        })
+        }),
+        signal: controller.signal,
       });
+      window.clearTimeout(timeout);
+      if (!feedbackResponse.ok) throw new Error(`Feedback request failed: ${feedbackResponse.status}`);
 
-      // 2. Artificial delay for "Learning Animation" impact
-      await new Promise(r => setTimeout(r, 4000));
+      // 2. Brief confirmation animation without making the user wait.
+      await new Promise(r => setTimeout(r, 1200));
       
       setIsReporting(false);
       setReportSuccess(true);
@@ -81,7 +86,7 @@ const Risk = () => {
         });
         window.scrollTo(0, 0);
         navigate("/home", { replace: true });
-      }, 3500);
+      }, 800);
 
     } catch (err) {
       console.error("Learning Error:", err);

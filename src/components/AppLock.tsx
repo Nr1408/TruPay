@@ -94,7 +94,7 @@ export const AppLock = ({ children }: { children: React.ReactNode }) => {
           onClick={() => setShowBiometric(true)}
           className="w-full py-5 rounded-[24px] bg-primary text-white font-display font-black text-sm uppercase tracking-[0.2em] shadow-glow active:scale-[0.98] transition-all flex items-center justify-center gap-3"
         >
-          {biometricSettings.type === "face" ? "Use Neural Scan" : "Use Fingerprint"}
+          Use Fingerprint
         </button>
 
         <button
@@ -110,7 +110,7 @@ export const AppLock = ({ children }: { children: React.ReactNode }) => {
         isOpen={showBiometric}
         onClose={() => setShowBiometric(false)}
         onSuccess={handleUnlock}
-        type={biometricSettings.type === "face" ? "face" : "fingerprint"}
+        type="fingerprint"
       />
 
       <UpiPinPad 

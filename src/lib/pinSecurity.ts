@@ -25,11 +25,21 @@ export const createPinCredential = async (pin: string): Promise<PinCredential> =
 };
 
 export const savePinCredential = async (credential: PinCredential) => {
+  // Keep the derived credential available locally as a non-plaintext fallback.
+  // The native secure store is still attempted first for Android devices.
+  localStorage.setItem(HASH_KEY, credential.pinHash);
+  localStorage.setItem(SALT_KEY, credential.pinSalt);
+
   if (isNative()) {
-    await NativeBiometric.setCredentials({ server: SECURE_SERVER, username: "trupay-pin", password: JSON.stringify(credential) });
-  } else {
-    localStorage.setItem(HASH_KEY, credential.pinHash);
-    localStorage.setItem(SALT_KEY, credential.pinSalt);
+    try {
+      await Promise.race([
+        NativeBiometric.setCredentials({ server: SECURE_SERVER, username: "trupay-pin", password: JSON.stringify(credential) }),
+        new Promise<never>((_, reject) => window.setTimeout(() => reject(new Error("Native credential storage timed out")), 5000)),
+      ]);
+    } catch (error) {
+      // Do not strand onboarding if the secure-storage plugin is unavailable.
+      console.warn("Native PIN storage unavailable; using the salted local credential fallback.", error);
+    }
   }
   localStorage.removeItem("trupay_pin");
 };
@@ -37,8 +47,12 @@ export const savePinCredential = async (credential: PinCredential) => {
 const getStoredCredential = async (): Promise<PinCredential | null> => {
   try {
     if (isNative()) {
-      const stored = await NativeBiometric.getCredentials({ server: SECURE_SERVER });
-      return JSON.parse(stored.password) as PinCredential;
+      try {
+        const stored = await NativeBiometric.getCredentials({ server: SECURE_SERVER });
+        return JSON.parse(stored.password) as PinCredential;
+      } catch {
+        // Fall through to the non-plaintext salted local credential.
+      }
     }
     const pinHash = localStorage.getItem(HASH_KEY);
     const pinSalt = localStorage.getItem(SALT_KEY);

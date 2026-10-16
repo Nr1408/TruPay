@@ -5,7 +5,9 @@ const THEME_KEY = "trupay_theme";
 export const getTheme = (): Theme => {
   const saved = localStorage.getItem(THEME_KEY) as Theme;
   if (saved) return saved;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  // TruPay always starts in light mode until the user explicitly changes it
+  // from Settings. Do not inherit the phone's system theme on first launch.
+  return "light";
 };
 
 export const setTheme = (theme: Theme) => {

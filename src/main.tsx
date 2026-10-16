@@ -8,8 +8,14 @@ import "./index.css";
 // Register service worker for PWA
 registerSW({ immediate: true });
 
-initializeAuthSession().catch(() => {
-	// Auth still works without persistence setup, but token sync may be unavailable.
-});
+const mountApp = () => {
+  createRoot(document.getElementById("root")!).render(<App />);
+};
 
-createRoot(document.getElementById("root")!).render(<App />);
+// Wait for the first-install reset before mounting AuthRoute. This prevents a
+// restored native Firebase session from briefly rendering the home screen.
+initializeAuthSession()
+  .catch(() => {
+    // Auth still works without persistence setup, but token sync may be unavailable.
+  })
+  .finally(mountApp);

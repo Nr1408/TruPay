@@ -13,7 +13,7 @@ import { updateBalance } from "@/lib/upi";
 import { canMakePayment, getDailyLimit, getTodaySpent } from "@/lib/limits";
 import { addTransaction } from "@/lib/transactions";
 import { toast } from "sonner";
-import { BACKEND_IP } from "@/config";
+import { SENTINEL_API_URL } from "@/config";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -165,8 +165,9 @@ const Pay = () => {
     }
 
     try {
+      const features = generateFeatures(contact, numericAmount, { lat, lon });
       const result = await checkFraud(
-        generateFeatures(contact, numericAmount, { lat, lon }), 
+        features,
         contact.upi, 
         numericAmount, 
         transactionId.current
@@ -176,6 +177,16 @@ const Pay = () => {
       setChecking(false);
       
       if (result.isFraud || isDatabaseRisky) {
+        // Record blocked/flagged attempts in Sentinel as well. A fraud screen
+        // is not a completed payment, but it is still an important security
+        // event for the dashboard's Alerts view.
+        void publishTransaction(
+          features,
+          contact.upi,
+          numericAmount,
+          transactionId.current,
+          1,
+        );
         setShowFraudAlert(true);
       } else {
         setIsVerified(true);
@@ -187,7 +198,7 @@ const Pay = () => {
     } catch (err) {
       setChecking(false);
       toast.error("Fraud Engine Connection Failed", {
-        description: `Could not reach ${BACKEND_IP}.`,
+        description: `Could not reach ${new URL(SENTINEL_API_URL).host}.`,
       });
     }
   };

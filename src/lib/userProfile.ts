@@ -4,10 +4,11 @@ import { createPinCredential, savePinCredential } from "./pinSecurity";
 
 export interface UserProfile {
   name: string;
+  phone?: string;
   pinHash: string;
   pinSalt: string;
   biometricsEnabled: boolean;
-  biometricType: "face" | "fingerprint";
+  biometricType: "fingerprint";
 }
 
 /**
@@ -19,7 +20,7 @@ export const saveProfileToCloud = async (profile: Partial<UserProfile>) => {
   try {
     const userDoc = doc(db, "users", auth.currentUser.uid);
     const safeProfile: Record<string, unknown> = {};
-    for (const key of ["name", "pinHash", "pinSalt", "biometricsEnabled", "biometricType"] as const) {
+    for (const key of ["name", "phone", "pinHash", "pinSalt", "biometricsEnabled", "biometricType"] as const) {
       if (profile[key] !== undefined) safeProfile[key] = profile[key];
     }
     await setDoc(userDoc, {

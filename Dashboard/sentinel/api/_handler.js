@@ -84,5 +84,20 @@ export default async function handler(req, res) {
       return send(res, 200, { accepted: true, latest: transaction }, origin);
     }
   }
+  if (route === "feedback" && req.method === "POST") {
+    const db = getDatabase();
+    if (!db) return send(res, 503, { error: "Firestore is not configured on Sentinel." }, origin);
+
+    const payload = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
+    const feedback = {
+      upiId: String(payload.upiId || "unknown@upi"),
+      scamType: String(payload.scamType || "Suspicious behavior"),
+      amount: Number(payload.amount || 0),
+      features: Array.isArray(payload.features) ? payload.features.map(Number) : [],
+      timestamp: new Date().toISOString(),
+    };
+    const ref = await db.collection("fraud_feedback").add(feedback);
+    return send(res, 200, { accepted: true, id: ref.id }, origin);
+  }
   return send(res, 404, { error: "Not found" }, origin);
 }

@@ -1,6 +1,18 @@
 import { Contact } from "@/data/mockData";
 import { PREDICT_ENDPOINT, SENTINEL_API_URL } from "@/config";
 
+const REQUEST_TIMEOUT_MS = 8000;
+
+const fetchWithTimeout = async (input: RequestInfo | URL, init: RequestInit = {}) => {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    window.clearTimeout(timeout);
+  }
+};
+
 export const generateFeatures = (contact: Contact, amount: number, gps?: { lat: number, lon: number }): number[] => {
   const isRisky = contact.trust === "risky";
   const isNew = contact.trust === "new";
@@ -51,7 +63,7 @@ export const generateFeatures = (contact: Contact, amount: number, gps?: { lat: 
 
 export const checkFraud = async (features: number[], upiId: string, amount: number, id?: string) => {
   try {
-    const response = await fetch(PREDICT_ENDPOINT, {
+    const response = await fetchWithTimeout(PREDICT_ENDPOINT, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ 
@@ -100,7 +112,7 @@ export const publishTransaction = async (
   prediction: 0 | 1,
 ) => {
   try {
-    await fetch(`${SENTINEL_API_URL}/transaction`, {
+    await fetchWithTimeout(`${SENTINEL_API_URL}/transaction`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

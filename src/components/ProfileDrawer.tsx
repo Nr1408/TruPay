@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
-import { X, Shield, CreditCard, Settings, LogOut, ChevronRight, Share2, BadgeCheck, Fingerprint, ScanFace, Languages, Check, Building2, Plus, ArrowLeft, Edit2 } from "lucide-react";
+import { X, Shield, CreditCard, Settings, LogOut, ChevronRight, Share2, BadgeCheck, Fingerprint, Languages, Check, Building2, Plus, ArrowLeft, Edit2 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { getBankAccounts, setDefaultAccount, removeBankAccount, type BankAccount } from "@/lib/bankAccounts";
@@ -26,7 +26,6 @@ export const ProfileDrawer: React.FC<ProfileDrawerProps> = ({ isOpen, onClose })
   const [isEnrolling, setIsEnrolling] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [bioEnabled, setBioEnabled] = useState(true);
-  const [bioType, setBioType] = useState<"face" | "finger">("face");
   
   const [dailyLimit, setDailyLimitState] = useState(getDailyLimit());
   const [todaySpent, setTodaySpent] = useState(getTodaySpent());
@@ -48,13 +47,22 @@ export const ProfileDrawer: React.FC<ProfileDrawerProps> = ({ isOpen, onClose })
     }
   }, [isOpen]);
 
-  const handleEnroll = () => {
+  const handleEnroll = async () => {
     setIsEnrolling(true);
-    setTimeout(() => {
+    try {
+      const { registerBiometric } = await import("@/lib/biometrics");
+      const success = await registerBiometric("fingerprint");
+      if (!success) {
+        toast.error("Fingerprint verification failed.");
+        return;
+      }
       setIsEnrolling(false);
       setBioEnabled(true);
-      setTimeout(() => setShowEnroll(false), 1200);
-    }, 2800);
+      setShowEnroll(false);
+      toast.success("Fingerprint enabled successfully.");
+    } finally {
+      setIsEnrolling(false);
+    }
   };
 
   const handleSaveLimit = () => {
@@ -149,9 +157,9 @@ export const ProfileDrawer: React.FC<ProfileDrawerProps> = ({ isOpen, onClose })
                       toast.error("Native Biometrics not available.");
                     }
                   }}
-                  icon={bioType === "face" ? ScanFace : Fingerprint} 
+                  icon={Fingerprint}
                   label={t("Biometric Lock")} 
-                  sub={bioEnabled ? `${bioType === "face" ? t("Face ID") : t("Touch ID")} ${t("Active & Protecting").split(' ')[0]}` : "Not Setup"}
+                  sub={bioEnabled ? `${t("Touch ID")} ${t("Active & Protecting").split(' ')[0]}` : "Not Setup"}
                 />
               </div>
             </section>
@@ -213,40 +221,17 @@ export const ProfileDrawer: React.FC<ProfileDrawerProps> = ({ isOpen, onClose })
       {showEnroll && (
         <div className="fixed inset-0 z-[250] flex items-center justify-center p-6 bg-black/80 backdrop-blur-xl animate-in fade-in duration-500">
           <div className="w-full max-w-[340px] flex flex-col items-center text-center">
-            {!isEnrolling && (
-              <div className="flex gap-4 mb-10">
-                <button 
-                  onClick={() => setBioType("face")}
-                  className={cn(
-                    "w-20 h-20 rounded-3xl flex flex-col items-center justify-center gap-2 transition-all border-2",
-                    bioType === "face" ? "bg-primary/20 border-primary text-primary" : "bg-white/5 border-white/10 text-white/40"
-                  )}
-                >
-                  <ScanFace className="w-8 h-8" />
-                  <span className="text-[10px] font-bold">{t("Face ID")}</span>
-                </button>
-                <button 
-                  onClick={() => setBioType("finger")}
-                  className={cn(
-                    "w-20 h-20 rounded-3xl flex flex-col items-center justify-center gap-2 transition-all border-2",
-                    bioType === "finger" ? "bg-primary/20 border-primary text-primary" : "bg-white/5 border-white/10 text-white/40"
-                  )}
-                >
-                  <Fingerprint className="w-8 h-8" />
-                  <span className="text-[10px] font-bold">{t("Touch ID")}</span>
-                </button>
-              </div>
-            )}
+            {!isEnrolling && <Fingerprint className="w-16 h-16 text-white/40 mb-10" />}
             <div className="relative mb-12">
               <div className="w-32 h-32 rounded-full border-2 border-white/20 flex items-center justify-center relative overflow-hidden">
                 {isEnrolling ? (
                   <>
-                    {bioType === "face" ? <ScanFace className="w-16 h-16 text-primary animate-pulse" /> : <Fingerprint className="w-16 h-16 text-primary animate-pulse" />}
+                    <Fingerprint className="w-16 h-16 text-primary animate-pulse" />
                     <div className="absolute inset-0 border-2 border-primary rounded-full animate-ping opacity-20" />
                     <div className="absolute top-0 left-0 w-full h-1 bg-primary animate-scan-line shadow-glow" />
                   </>
                 ) : (
-                  bioType === "face" ? <ScanFace className="w-16 h-16 text-white/40" /> : <Fingerprint className="w-16 h-16 text-white/40" />
+                  <Fingerprint className="w-16 h-16 text-white/40" />
                 )}
               </div>
             </div>

@@ -1,5 +1,6 @@
 import { auth } from "./firebase";
 import { signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } from "firebase/auth";
+import { clearPinCredential } from "./pinSecurity";
 
 /**
  * Initializes the auth session persistence and listeners.
@@ -30,7 +31,7 @@ export const signOutAndCleanup = async () => {
 
     // 2. Clear Local Identity markers
     localStorage.removeItem("trupay_user_name");
-    localStorage.removeItem("trupay_pin");
+    await clearPinCredential();
     
     // 3. Clear any session-specific UI states
     sessionStorage.clear();

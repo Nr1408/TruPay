@@ -6,6 +6,7 @@ import { PhoneShell } from "@/components/PhoneShell";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { NativePermissionDialog } from "@/components/NativePermissionDialog";
+import { createPinCredential, savePinCredential } from "@/lib/pinSecurity";
 
 const OnboardingPin = () => {
   const { t } = useTranslation();
@@ -51,11 +52,12 @@ const OnboardingPin = () => {
   const handleComplete = async (finalPin: string) => {
     setLoading(true);
     try {
-      localStorage.setItem("trupay_pin", finalPin);
+      const credential = await createPinCredential(finalPin);
+      await savePinCredential(credential);
       
       // Save PIN to Cloud
       const { saveProfileToCloud } = await import("@/lib/userProfile");
-      await saveProfileToCloud({ pin: finalPin });
+      await saveProfileToCloud(credential);
       
       // Mark as already verified for this session
       sessionStorage.setItem("trupay_unlocked", "true");

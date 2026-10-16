@@ -9,35 +9,19 @@ export interface BankAccount {
 
 const STORAGE_KEY = 'trupay_bank_accounts';
 
-const DEFAULT_BANKS: BankAccount[] = [
-  {
-    id: '1',
-    bankName: 'HDFC Bank',
-    accountNumber: 'XXXX 4589',
-    type: 'Savings',
-    isDefault: true,
-    logo: 'https://www.hdfcbank.com/content/api/contentstream-id/723fb80a-2dde-42a3-9793-7ae1be57c87f/61f4d9b7-1f48-4e89-9a03-72210519a79a?'
-  },
-  {
-    id: '2',
-    bankName: 'ICICI Bank',
-    accountNumber: 'XXXX 1234',
-    type: 'Savings',
-    isDefault: false,
-    logo: 'https://www.icicibank.com/content/dam/icicibank/india/assets/images/header/logo.png'
-  }
-];
-
 export const getBankAccounts = (): BankAccount[] => {
   const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored) {
-    try {
-      return JSON.parse(stored);
-    } catch {
-      return DEFAULT_BANKS;
-    }
+  if (!stored) {
+    return [];
   }
-  return DEFAULT_BANKS;
+
+  try {
+    const accounts = JSON.parse(stored) as BankAccount[];
+    // Remove the old demo placeholder accounts. Real linked accounts use random IDs.
+    return accounts.filter((account) => account?.id !== '1' && account?.id !== '2');
+  } catch {
+    return [];
+  }
 };
 
 export const saveBankAccounts = (accounts: BankAccount[]) => {

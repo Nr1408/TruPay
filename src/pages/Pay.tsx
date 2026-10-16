@@ -5,7 +5,7 @@ import { PhoneShell } from "@/components/PhoneShell";
 import { TrustBadge } from "@/components/TrustBadge";
 import { Contact, computeRisk } from "@/data/mockData";
 import { cn } from "@/lib/utils";
-import { generateFeatures, checkFraud } from "@/services/fraudService";
+import { generateFeatures, checkFraud, publishTransaction } from "@/services/fraudService";
 import { BiometricPrompt } from "@/components/BiometricPrompt";
 import { UpiPinPad } from "@/components/UpiPinPad";
 import { NativePermissionDialog } from "@/components/NativePermissionDialog";
@@ -24,7 +24,8 @@ import {
   AlertDialogAction,
   AlertDialogCancel
 } from "@/components/ui/alert-dialog";
-import { USER_BANKS } from "@/data/bankingData";
+import { getBankAccounts, type BankAccount } from "@/lib/bankAccounts";
+import { App as CapacitorApp } from "@capacitor/app";
 
 const Pay = () => {
   const navigate = useNavigate();
@@ -50,7 +51,7 @@ const Pay = () => {
     localStorage.getItem("trupay_location_permission") === "granted"
   );
 
-  const banks = USER_BANKS;
+  const banks = getBankAccounts();
 
   const transactionId = useRef(`txn_${Math.random().toString(36).substr(2, 9)}`);
   const numericAmount = useMemo(() => parseFloat(amount || "0"), [amount]);
@@ -97,6 +98,30 @@ const Pay = () => {
   useEffect(() => {
     if (!contact) navigate("/send", { replace: true });
   }, [contact, navigate]);
+
+  useEffect(() => {
+    let listener: { remove: () => Promise<void> } | undefined;
+    void CapacitorApp.addListener("backButton", () => {
+      if (showPinPad) {
+        setShowPinPad(false);
+        return;
+      }
+      if (showFraudAlert) {
+        setShowFraudAlert(false);
+        return;
+      }
+      if (showLimitAlert) {
+        setShowLimitAlert(false);
+        return;
+      }
+      if (showBanks) {
+        setShowBanks(false);
+        return;
+      }
+      navigate("/send", { replace: true });
+    }).then((handle) => { listener = handle; });
+    return () => { void listener?.remove(); };
+  }, [navigate, showBanks, showFraudAlert, showLimitAlert, showPinPad]);
 
   if (!contact) return null;
 
@@ -173,14 +198,22 @@ const Pay = () => {
       setViewingBalance(selectedBank);
       setTimeout(() => setViewingBalance(null), 5000);
     } else {
-      addTransaction({
+      const features = generateFeatures(contact, numericAmount);
+      const completedTransaction = addTransaction({
         name: contact.name,
         type: "sent",
         amount: numericAmount,
         shielded: true
       });
+      void publishTransaction(
+        features,
+        contact.upi,
+        numericAmount,
+        completedTransaction.id,
+        liveRiskScore >= 70 ? 1 : 0,
+      );
       updateBalance(numericAmount, "debit");
-      navigate("/success", { state: { contact, amount: numericAmount, score: liveRiskScore } });
+      navigate("/success", { replace: true, state: { contact, amount: numericAmount, score: liveRiskScore } });
     }
   };
 
@@ -295,7 +328,7 @@ const Pay = () => {
             ) : (
               <div className="space-y-3 animate-in slide-in-from-bottom-4 duration-500">
                 <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-black px-2 mb-3">Choose Account</p>
-                {banks.map((bank, i) => (
+                {banks.map((bank: BankAccount, i) => (
                   <div 
                     key={bank.name}
                     onClick={() => setSelectedBank(i)}
@@ -312,8 +345,8 @@ const Pay = () => {
                         {selectedBank === i && <div className="w-2 h-2 rounded-full bg-white" />}
                       </div>
                       <div>
-                        <p className="text-sm font-bold">{bank.name}</p>
-                        <p className="text-[10px] text-muted-foreground font-medium">{bank.account}</p>
+                        <p className="text-sm font-bold">{bank.bankName}</p>
+                        <p className="text-[10px] text-muted-foreground font-medium">{bank.accountNumber}</p>
                       </div>
                     </div>
                   </div>

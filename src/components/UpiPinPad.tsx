@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Check, Delete, ShieldCheck, X, AlertCircle, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { createPinCredential, hasPinCredential, savePinCredential, verifyPin } from "@/lib/pinSecurity";
 
 interface UpiPinPadProps {
   isOpen: boolean;
@@ -27,24 +28,16 @@ export const UpiPinPad: React.FC<UpiPinPadProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      const savedPin = localStorage.getItem("trupay_pin");
-      setIsSetting(!savedPin);
+      hasPinCredential().then((hasPin) => {
+        const legacyPin = localStorage.getItem("trupay_pin");
+        setIsSetting(!hasPin && !legacyPin);
+      });
       setPin("");
       setConfirmPin("");
       setIsConfirming(false);
       setError(false);
     }
   }, [isOpen]);
-
-  // AUTO-SUBMIT once 4 digits are entered
-  useEffect(() => {
-    if (pin.length === pinLength) {
-      const timer = setTimeout(() => {
-        handleSubmit();
-      }, 300);
-      return () => clearTimeout(timer);
-    }
-  }, [pin]);
 
   const handlePress = (num: string) => {
     if (error) setError(false);
@@ -57,7 +50,7 @@ export const UpiPinPad: React.FC<UpiPinPadProps> = ({
     setPin((p) => p.slice(0, -1));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const currentPin = pin;
     if (currentPin.length !== pinLength) return;
 
@@ -68,7 +61,8 @@ export const UpiPinPad: React.FC<UpiPinPadProps> = ({
         setIsConfirming(true);
       } else {
         if (currentPin === confirmPin) {
-          localStorage.setItem("trupay_pin", currentPin);
+          const credential = await createPinCredential(currentPin);
+          await savePinCredential(credential);
           toast.success("UPI PIN Set Successfully!");
           onSuccess(currentPin);
         } else {
@@ -79,8 +73,15 @@ export const UpiPinPad: React.FC<UpiPinPadProps> = ({
         }
       }
     } else {
-      const savedPin = localStorage.getItem("trupay_pin");
-      if (currentPin === savedPin) {
+      let valid = await verifyPin(currentPin);
+      // Migrate a legacy local plaintext PIN after a successful check.
+      const legacyPin = localStorage.getItem("trupay_pin");
+      if (!valid && legacyPin && currentPin === legacyPin) {
+        const credential = await createPinCredential(currentPin);
+        await savePinCredential(credential);
+        valid = true;
+      }
+      if (valid) {
         onSuccess(currentPin);
       } else {
         setError(true);
@@ -201,6 +202,7 @@ export const UpiPinPad: React.FC<UpiPinPadProps> = ({
         </button>
         <button
           onClick={handleSubmit}
+          aria-label="Confirm UPI PIN"
           className={cn(
             "py-4 flex items-center justify-center transition-all duration-500",
             pin.length === pinLength 

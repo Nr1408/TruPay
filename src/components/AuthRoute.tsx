@@ -1,7 +1,8 @@
 import { ReactNode, useEffect, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged, User } from "firebase/auth";
 import { auth } from "@/lib/firebase";
+import { hasPinCredential } from "@/lib/pinSecurity";
 
 type AuthStatus = "loading" | "authenticated" | "partial" | "unauthenticated";
 
@@ -16,18 +17,15 @@ const AuthLoadingScreen = () => (
 
 const useAuthStatus = () => {
   const [status, setStatus] = useState<AuthStatus>(() => {
-    const hasName = !!localStorage.getItem("trupay_user_name");
-    const hasPin = !!localStorage.getItem("trupay_pin");
-    if (hasName && hasPin) return "authenticated";
-    if (hasName) return "partial";
     return "loading";
   });
 
   useEffect(() => {
-    const checkStatus = (user?: any) => {
+    const checkStatus = async (user?: User | null) => {
+      const currentUser = user ?? auth?.currentUser;
       const hasName = !!localStorage.getItem("trupay_user_name");
-      const hasPin = !!localStorage.getItem("trupay_pin");
-      const isFirebase = !!user;
+      const hasPin = await hasPinCredential();
+      const isFirebase = !!currentUser;
 
       if ((isFirebase || hasName) && hasPin) setStatus("authenticated");
       else if (isFirebase || hasName) setStatus("partial");
@@ -35,16 +33,16 @@ const useAuthStatus = () => {
     };
 
     if (!auth) {
-      checkStatus();
+      void checkStatus();
       return;
     }
 
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      checkStatus(user);
+      void checkStatus(user);
     });
 
     // Also listen for storage changes (for same-page updates)
-    const handleStorage = () => checkStatus();
+    const handleStorage = () => { void checkStatus(auth?.currentUser); };
     window.addEventListener("storage", handleStorage);
 
     return () => {

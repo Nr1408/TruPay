@@ -6,13 +6,8 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   plugins: {
     FirebaseAuthentication: {
-      providers: ["google.com"],
+      providers: ["google.com", "phone"],
       skipNativeAuth: false
-    },
-    GoogleAuth: {
-      scopes: ["profile", "email"],
-      serverClientId: "694530490769-3npf3c04g48j6lcfnqm2a8orb7kar1ss.apps.googleusercontent.com",
-      forceCodeForRefreshToken: true
     },
     CapacitorHttp: {
       enabled: true

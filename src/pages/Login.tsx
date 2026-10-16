@@ -8,6 +8,7 @@ import { PhoneShell } from "@/components/PhoneShell";
 import { Input } from "@/components/ui/input";
 import { auth, googleProvider, isFirebaseConfigured } from "@/lib/firebase";
 import { BACKEND_IP } from "@/config";
+import { cn } from "@/lib/utils";
 
 const Login = () => {
   const { t } = useTranslation();
@@ -19,7 +20,9 @@ const Login = () => {
   const [showNameInput, setShowNameInput] = useState(false);
   const [otpCode, setOtpCode] = useState("");
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
+  const [nativeVerificationId, setNativeVerificationId] = useState<string | null>(null);
   const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
+  const nativePhoneListenersRef = useRef<Array<{ remove: () => Promise<void> }>>([]);
 
   useEffect(() => {
     return () => {
@@ -27,6 +30,7 @@ const Login = () => {
         recaptchaVerifierRef.current.clear();
         recaptchaVerifierRef.current = null;
       }
+      nativePhoneListenersRef.current.forEach((listener) => { void listener.remove(); });
     };
   }, []);
 
@@ -107,7 +111,20 @@ const Login = () => {
     }
   };
 
-  const [generatedOtp, setGeneratedOtp] = useState<string | null>(null);
+  const completePhoneLogin = async () => {
+    const { restoreProfileFromCloud } = await import("@/lib/userProfile");
+    const existingProfile = await restoreProfileFromCloud();
+
+    if (existingProfile && existingProfile.name) {
+      toast.success(`Welcome back, ${existingProfile.name}! 🛡️`);
+      localStorage.setItem("trupay_user_name", existingProfile.name);
+      window.dispatchEvent(new Event("storage"));
+      navigate("/home", { replace: true });
+    } else {
+      setShowNameInput(true);
+      toast.success("Identity Verified Successfully! 🛡️");
+    }
+  };
 
   const handleSendOtp = async () => {
     const normalizedPhone = phoneNumber.replace(/\s+/g, "").trim();
@@ -116,57 +133,67 @@ const Login = () => {
       return;
     }
 
+    if (!auth) {
+      toast.error("Firebase Auth is not configured.");
+      return;
+    }
     setLoading("phone");
-    
-    // Simulate network delay for realism
-    setTimeout(() => {
-      const mockOtp = Math.floor(100000 + Math.random() * 900000).toString();
-      setGeneratedOtp(mockOtp);
-      setOtpCode("");
+    setOtpCode("");
+
+    try {
+      const { Capacitor } = await import("@capacitor/core");
+      if (Capacitor.isNativePlatform()) {
+        const { FirebaseAuthentication } = await import("@capacitor-firebase/authentication");
+        nativePhoneListenersRef.current.forEach((listener) => { void listener.remove(); });
+        nativePhoneListenersRef.current = [];
+        nativePhoneListenersRef.current.push(await FirebaseAuthentication.addListener("phoneCodeSent", (event) => {
+          setNativeVerificationId(event.verificationId);
+          setConfirmationResult({} as ConfirmationResult);
+          setLoading(null);
+          toast.success("OTP sent by Firebase SMS.");
+        }));
+        nativePhoneListenersRef.current.push(await FirebaseAuthentication.addListener("phoneVerificationFailed", (event) => {
+          setLoading(null);
+          toast.error("OTP could not be sent", { description: event.message || "Check Firebase Phone Auth settings." });
+        }));
+        await FirebaseAuthentication.signInWithPhoneNumber({ phoneNumber: normalized });
+      } else {
+        const verifier = await getOrCreateRecaptchaVerifier();
+        const result = await signInWithPhoneNumber(auth, normalized, verifier);
+        setConfirmationResult(result);
+        setLoading(null);
+        toast.success("OTP sent by Firebase SMS.");
+      }
+    } catch (error: any) {
       setLoading(null);
-      
-      // Special Demo Logic: Show the OTP in a toast so the user knows it
-      toast.success(`Demo OTP Sent: ${mockOtp}`, {
-        duration: 8000,
-        description: "In production, this would arrive via SMS.",
-      });
-      
-      // Simulate that the OTP was "received" (using a dummy confirmation object to satisfy existing UI checks)
-      setConfirmationResult({} as any);
-    }, 1200);
+      toast.error("Could not send OTP", { description: error?.message || "Check Firebase Phone Auth configuration." });
+    }
   };
 
   const handleVerifyOtp = async () => {
-    if (!generatedOtp) {
+    if (!confirmationResult && !nativeVerificationId) {
       toast.error("Please send OTP first.");
       return;
     }
-
-    if (otpCode.trim() !== generatedOtp) {
-      toast.error("Invalid OTP code. For demo, use: " + generatedOtp);
+    if (!/^\d{6}$/.test(otpCode.trim())) {
+      toast.error("Enter the 6-digit OTP from Firebase SMS.");
       return;
     }
 
     setLoading("otp");
-    
-    setTimeout(async () => {
-      // 1. Check if user already exists in cloud
-      const { restoreProfileFromCloud } = await import("@/lib/userProfile");
-      const existingProfile = await restoreProfileFromCloud();
-
-      if (existingProfile && existingProfile.name) {
-        // RETURNING USER: Jump straight to home/vault
-        toast.success(`Welcome back, ${existingProfile.name}! 🛡️`);
-        localStorage.setItem("trupay_user_name", existingProfile.name);
-        window.dispatchEvent(new Event("storage"));
-        navigate("/home", { replace: true });
+    try {
+      if (nativeVerificationId) {
+        const { FirebaseAuthentication } = await import("@capacitor-firebase/authentication");
+        await FirebaseAuthentication.confirmVerificationCode({ verificationId: nativeVerificationId, verificationCode: otpCode.trim() });
       } else {
-        // NEW USER: Ask for name
-        setShowNameInput(true);
-        toast.success("Identity Verified Successfully! 🛡️");
+        await confirmationResult!.confirm(otpCode.trim());
       }
+      await completePhoneLogin();
+    } catch (error: any) {
+      toast.error("Invalid OTP", { description: error?.message || "Please request a new code." });
+    } finally {
       setLoading(null);
-    }, 800);
+    }
   };
 
   const checkConnectivity = async () => {
@@ -199,7 +226,10 @@ const Login = () => {
 
   return (
     <PhoneShell hideNav>
-      <div className="h-full flex flex-col px-8 pt-20 pb-12 bg-background relative overflow-hidden">
+      <div className={cn(
+        "h-full flex flex-col bg-background relative overflow-hidden",
+        showNameInput ? "px-5 pt-8 pb-5" : "px-8 pt-20 pb-12",
+      )}>
         {/* Floating Health Check Button */}
         <div className="absolute top-0 right-0 p-4 z-[60]">
           <button 
@@ -215,34 +245,47 @@ const Login = () => {
         <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -mr-32 -mt-32" />
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -ml-32 -mb-32" />
 
-        <div className="flex-1 flex flex-col items-center justify-center text-center relative z-10 w-full">
-          <div className="w-24 h-24 rounded-[32px] overflow-hidden mb-12 shadow-glow animate-in zoom-in duration-700">
+        <div className={cn(
+          "flex-1 flex flex-col items-center justify-center text-center relative z-10 w-full",
+          showNameInput ? "flex-none justify-start pt-2" : "",
+        )}>
+          <div className={cn(
+            "rounded-[32px] overflow-hidden shadow-glow animate-in zoom-in duration-700",
+          showNameInput ? "w-16 h-16 mb-3" : "w-24 h-24 mb-12",
+          )}>
             <img src="/trupay-logo.png" alt="TruPay" className="w-full h-full object-cover" />
           </div>
           
-          <h1 className="text-4xl md:text-5xl font-display font-bold tracking-tight mb-6 leading-[1.1] animate-in fade-in duration-700 delay-100">
-            {t("Experience the future of UPI.")}
-          </h1>
-          <p className="text-muted-foreground text-base max-w-[280px] leading-relaxed animate-in fade-in duration-700 delay-200">
-            {t("Secure, AI-powered payments for the next billion users.")}
-          </p>
+          {!showNameInput && (
+            <>
+              <h1 className="text-4xl md:text-5xl font-display font-bold tracking-tight mb-6 leading-[1.1] animate-in fade-in duration-700 delay-100">
+                {t("Experience the future of UPI.")}
+              </h1>
+              <p className="text-muted-foreground text-base max-w-[280px] leading-relaxed animate-in fade-in duration-700 delay-200">
+                {t("Secure, AI-powered payments for the next billion users.")}
+              </p>
+            </>
+          )}
         </div>
 
-        <div className="space-y-5 relative z-10 animate-in fade-in duration-700 delay-300">
+        <div className={cn(
+          "space-y-5 relative z-10 animate-in fade-in duration-700 delay-300",
+          showNameInput && "flex-1 flex flex-col justify-center pb-2",
+        )}>
           {showNameInput ? (
-            <div className="rounded-2xl border-2 border-primary/20 bg-card/80 backdrop-blur-xl px-6 py-8 space-y-6 animate-in zoom-in duration-500 shadow-2xl relative overflow-hidden">
+            <div className="rounded-2xl border-2 border-primary/20 bg-card/80 backdrop-blur-xl px-5 py-5 space-y-4 animate-in zoom-in duration-500 shadow-2xl relative overflow-hidden">
                <div className="absolute top-0 right-0 w-24 h-24 bg-primary/10 rounded-full blur-2xl -mr-12 -mt-12" />
                
                <div className="space-y-2 text-center">
-                 <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                   <ShieldCheck className="w-8 h-8 text-primary" />
+                 <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-2">
+                   <ShieldCheck className="w-6 h-6 text-primary" />
                  </div>
-                 <h2 className="text-xl font-display font-black text-white">Verification Complete</h2>
-                 <p className="text-xs text-muted-foreground uppercase tracking-widest font-bold">Secure identity established</p>
+                 <h2 className="text-lg font-display font-black text-white">Verification Complete</h2>
+                 <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Secure identity established</p>
                </div>
 
                <div className="space-y-4 pt-4 border-t border-border">
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <label htmlFor="user-name" className="text-[10px] font-black uppercase tracking-widest text-primary">
                       Legal Name (For UPI Verification)
                     </label>
@@ -252,12 +295,12 @@ const Login = () => {
                       placeholder="e.g. Rahul Sharma"
                       value={userName}
                       onChange={(event) => setUserName(event.target.value)}
-                      className="h-14 border-primary/20 focus:border-primary text-lg font-semibold bg-zinc-900/50"
+                      className="h-12 border-primary/20 focus:border-primary text-base font-semibold bg-zinc-900/50"
                     />
                   </div>
                   <button
                     onClick={handleSaveName}
-                    className="w-full h-14 rounded-2xl bg-primary text-primary-foreground font-black uppercase tracking-[0.2em] shadow-glow transition-all hover:scale-[1.02] active:scale-95"
+                    className="w-full h-12 rounded-2xl bg-primary text-primary-foreground font-black uppercase tracking-[0.16em] shadow-glow transition-all hover:scale-[1.02] active:scale-95"
                   >
                     Set Up Sentinel 🛡️
                   </button>
@@ -362,7 +405,7 @@ const Login = () => {
             </>
           )}
 
-          <p className="text-[10px] text-center text-muted-foreground px-8 pt-4">
+          <p className={cn("text-[10px] text-center text-muted-foreground px-8", showNameInput ? "pt-2" : "pt-4")}>
             By continuing, you agree to TruPay's <span className="underline">Terms</span> and <span className="underline">Privacy Policy</span>.
           </p>
         </div>

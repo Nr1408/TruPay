@@ -13,44 +13,22 @@ export const FaceIdScanner: React.FC<FaceIdScannerProps> = ({ onSuccess, onCance
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
-    let videoStream: MediaStream | null = null;
-
     const startScanner = async () => {
       try {
-        // 1. Start Real Camera Stream
-        setStatus("positioning");
-        try {
-          videoStream = await navigator.mediaDevices.getUserMedia({ 
-            video: { facingMode: "user", width: 400, height: 400 } 
-          });
-          if (videoRef.current) {
-            videoRef.current.srcObject = videoStream;
-          }
-          setTimeout(() => setStatus("scanning"), 1000);
-        } catch (err) {
-          console.warn("Camera access denied, using simulated visuals.");
-          setTimeout(() => setStatus("scanning"), 1000);
-        }
-
-        // 2. Trigger Native Hardware Biometrics
+        // The camera preview is decorative only. The OS biometric prompt is
+        // the only source of truth for authentication.
+        setStatus("scanning");
         const success = await authenticateBiometric("face");
         
         if (success) {
           setStatus("verifying");
           setTimeout(() => {
             setStatus("success");
-            // Stop camera stream before proceeding
-            if (videoStream) {
-              videoStream.getTracks().forEach(track => track.stop());
-            }
             setTimeout(onSuccess, 800);
           }, 1000);
         } else {
           setStatus("error");
           setTimeout(() => {
-            if (videoStream) {
-              videoStream.getTracks().forEach(track => track.stop());
-            }
             onCancel();
           }, 2000);
         }
@@ -62,9 +40,6 @@ export const FaceIdScanner: React.FC<FaceIdScannerProps> = ({ onSuccess, onCance
     startScanner();
 
     return () => {
-      if (videoStream) {
-        videoStream.getTracks().forEach(track => track.stop());
-      }
     };
   }, []);
 
@@ -72,7 +47,7 @@ export const FaceIdScanner: React.FC<FaceIdScannerProps> = ({ onSuccess, onCance
     <div className="fixed inset-0 z-[2000] bg-black flex flex-col items-center justify-center p-8 animate-in fade-in duration-500">
       <div className="absolute top-10 left-1/2 -translate-x-1/2 flex items-center gap-2">
         <ShieldCheck className="w-5 h-5 text-primary" />
-        <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40">Sentinel Vision AI</span>
+        <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40">Device Biometric</span>
       </div>
 
       {/* The Scanner Aperture */}
@@ -129,15 +104,15 @@ export const FaceIdScanner: React.FC<FaceIdScannerProps> = ({ onSuccess, onCance
           "text-xl font-display font-black uppercase tracking-widest transition-colors",
           status === "success" ? "text-emerald-500" : "text-white"
         )}>
-          {status === "positioning" && "Aligning Face"}
-          {status === "scanning" && "Mapping Face..."}
+          {status === "positioning" && "Preparing Biometric Prompt"}
+          {status === "scanning" && "Verify on Device..."}
           {status === "verifying" && "Verifying Identity..."}
           {status === "success" && "Identity Confirmed"}
           {status === "error" && "Scan Failed"}
         </h2>
         <p className="text-xs text-muted-foreground font-medium max-w-[220px] mx-auto opacity-60">
-          {status === "positioning" && "Center your face in the scan zone."}
-          {status === "scanning" && "Sentinel is analyzing facial geometry."}
+          {status === "positioning" && "Use the biometric prompt from your device."}
+          {status === "scanning" && "Confirm with your enrolled device biometric."}
           {status === "verifying" && "Syncing with secure enclave."}
           {status === "success" && "Access granted to secure vault."}
           {status === "error" && "Identity mismatch. Please try again."}

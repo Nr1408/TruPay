@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Fingerprint, ScanFace, X, ShieldCheck, ShieldAlert, Camera } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import {
   registerBiometric,
   authenticateBiometric,
@@ -65,27 +66,12 @@ export const BiometricPrompt: React.FC<BiometricPromptProps> = ({
     setErrorMessage("");
     setStatus("scanning");
 
-    if (type === 'face') {
-      await startCamera();
-    }
-
     try {
-      // Show the camera feed/animation for a premium feel
-      await new Promise(r => setTimeout(r, 2200));
-
-      let success = false;
-      
-      if (type === 'face') {
-        // PURE FACE ID: Use the high-fidelity neural scan as verification
-        success = true; 
-      } else {
-        // FINGERPRINT: Use the native hardware prompt
-        if (mode === "enroll") {
-          success = await registerBiometric(type);
-        } else {
-          success = await authenticateBiometric(type);
-        }
-      }
+      // The OS prompt is the only source of biometric truth. The camera is not
+      // a face-recognition engine and must never grant access by itself.
+      const success = mode === "enroll"
+        ? await registerBiometric(type)
+        : await authenticateBiometric(type);
 
       if (success) {
         setStatus("success");
@@ -96,7 +82,7 @@ export const BiometricPrompt: React.FC<BiometricPromptProps> = ({
         }, 1200);
       } else {
         setStatus("idle");
-        toast.error(`${type === 'face' ? 'Face ID' : 'Fingerprint'} failed. Please try again.`);
+        toast.error("Biometric verification failed. Use your PIN instead.");
       }
     } catch (error) {
       console.error("Biometric process error:", error);
@@ -194,11 +180,11 @@ export const BiometricPrompt: React.FC<BiometricPromptProps> = ({
 
           <div className="text-center space-y-2 z-10">
             <h3 className="font-display text-2xl font-black text-white tracking-tight">
-              {status === "scanning" ? (type === 'face' ? "Neural Scan..." : "Analyzing...") : status === "success" ? "Verified" : "Access Denied"}
+              {status === "scanning" ? "Waiting for device biometric..." : status === "success" ? "Verified" : "Access Denied"}
             </h3>
             <p className="text-[11px] text-muted-foreground uppercase tracking-widest font-bold">
               {status === "scanning" 
-                ? type === "face" ? "Mapping Face Geometry" : "Verifying Biometric Hash"
+                ? "Confirm in the Android biometric prompt"
                 : status === "success" ? "Sentinel Identity Confirmed" : "Authentication Required"}
             </p>
           </div>

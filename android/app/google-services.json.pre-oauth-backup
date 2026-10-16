@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "596224876345",
+    "project_id": "trupay-3293e",
+    "storage_bucket": "trupay-3293e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:596224876345:android:d8953a1038f4763c5552e8",
+        "android_client_info": {
+          "package_name": "com.trupay.ai"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCOeejZAjbGdaD5WxR87sCRR6l0DBsmmWo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes, Outlet } from "react-router-dom";
+import { BrowserRouter, Route, Routes, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -25,6 +25,7 @@ import NotFound from "./pages/NotFound.tsx";
 import { AppLock } from "./components/AppLock.tsx";
 import { PublicOnlyRoute, RequireAuth } from "./components/AuthRoute.tsx";
 import { initializeTheme } from "./lib/theme.ts";
+import { App as CapacitorApp } from "@capacitor/app";
 
 const queryClient = new QueryClient();
 
@@ -36,6 +37,40 @@ const AuthenticatedLayout = () => (
     </AppLock>
   </RequireAuth>
 );
+
+const NativeBackHandler = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    let listener: { remove: () => Promise<void> } | undefined;
+    void CapacitorApp.addListener("backButton", () => {
+      const path = location.pathname;
+
+      // Never return to a completed payment or its PIN authorization state.
+      if (path === "/success") {
+        navigate("/home", { replace: true });
+        return;
+      }
+
+      // Onboarding should not expose the login screen or earlier security steps.
+      if (path.startsWith("/onboarding/")) return;
+
+      if (["/risk", "/scan", "/rewards", "/settings"].includes(path)) {
+        navigate("/home", { replace: true });
+        return;
+      }
+
+      if (path === "/send") {
+        navigate("/home", { replace: true });
+      }
+    }).then((handle) => { listener = handle; });
+
+    return () => { void listener?.remove(); };
+  }, [location.pathname, navigate]);
+
+  return null;
+};
 
 const App = () => {
   useEffect(() => {
@@ -60,6 +95,7 @@ const App = () => {
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          <NativeBackHandler />
           <Routes>
             {/* Public Onboarding Flow */}
             <Route path="/" element={<PublicOnlyRoute><Login /></PublicOnlyRoute>} />

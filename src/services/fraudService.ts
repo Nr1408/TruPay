@@ -1,5 +1,5 @@
 import { Contact } from "@/data/mockData";
-import { PREDICT_ENDPOINT } from "@/config";
+import { PREDICT_ENDPOINT, SENTINEL_API_URL } from "@/config";
 
 export const generateFeatures = (contact: Contact, amount: number, gps?: { lat: number, lon: number }): number[] => {
   const isRisky = contact.trust === "risky";
@@ -88,5 +88,31 @@ export const checkFraud = async (features: number[], upiId: string, amount: numb
       score: isSimulatedFraud ? 88 : 12,
       mode: 'simulated' as const
     };
+  }
+};
+
+/** Publish a completed payment to Sentinel without blocking the payment flow. */
+export const publishTransaction = async (
+  features: number[],
+  upiId: string,
+  amount: number,
+  id: string,
+  prediction: 0 | 1,
+) => {
+  try {
+    await fetch(`${SENTINEL_API_URL}/transaction`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id,
+        upiId,
+        amount,
+        features,
+        prediction,
+        timestamp: new Date().toISOString(),
+      }),
+    });
+  } catch (error) {
+    console.warn("Sentinel transaction publish failed; payment remains local.", error);
   }
 };

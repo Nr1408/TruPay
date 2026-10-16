@@ -29,14 +29,15 @@ export const isBiometricAvailable = async (): Promise<boolean> => {
   
   if (platform !== 'web') {
     try {
-      const result = await NativeBiometric.isAvailable();
+      const result = await NativeBiometric.isAvailable({ useFallback: false });
       return result.isAvailable;
     } catch {
       return false;
     }
   }
   
-  return !!(window.isSecureContext && window.PublicKeyCredential);
+  // Browser camera/secure-context access is not biometric authentication.
+  return false;
 };
 
 export const registerBiometric = async (type: 'face' | 'fingerprint' = 'face'): Promise<boolean> => {
@@ -49,6 +50,8 @@ export const registerBiometric = async (type: 'face' | 'fingerprint' = 'face'): 
         title: `${type === 'face' ? 'Face ID' : 'Fingerprint'} Enrollment`,
         subtitle: "Secure your payments",
         description: `Use your ${type === 'face' ? 'face' : 'fingerprint'} to authorize payments instantly.`,
+        useFallback: false,
+        maxAttempts: 3,
       });
       return true;
     } catch (error) {
@@ -57,10 +60,7 @@ export const registerBiometric = async (type: 'face' | 'fingerprint' = 'face'): 
     }
   }
 
-  if (window.isSecureContext) {
-    return true; 
-  }
-  
+  // Never approve biometric authentication in a browser fallback.
   return false;
 };
 
@@ -74,6 +74,8 @@ export const authenticateBiometric = async (type: 'face' | 'fingerprint' = 'face
         title: `Confirm with ${type === 'face' ? 'Face ID' : 'Fingerprint'}`,
         subtitle: "Biometric Verification",
         description: `Please scan your ${type === 'face' ? 'face' : 'fingerprint'} to proceed.`,
+        useFallback: false,
+        maxAttempts: 3,
       });
       return true;
     } catch (error) {
@@ -82,9 +84,6 @@ export const authenticateBiometric = async (type: 'face' | 'fingerprint' = 'face
     }
   }
 
-  if (window.isSecureContext || window.location.hostname === 'localhost') {
-    return true;
-  }
-
+  // Never approve biometric authentication in a browser fallback.
   return false;
 };

@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "694530490769",
+    "project_id": "tru-pay",
+    "storage_bucket": "tru-pay.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:694530490769:android:b4cf73283929149b15da30",
+        "android_client_info": {
+          "package_name": "com.trupay.ai"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "694530490769-3npf3c04g48j6lcfnqm2a8orb7kar1ss.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCvwK49m7HS5pryaZlMqvhnWe2lQPrdq9Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "694530490769-3npf3c04g48j6lcfnqm2a8orb7kar1ss.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

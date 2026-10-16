@@ -5,20 +5,27 @@ import { getBiometricSettings } from "@/lib/biometrics";
 import { UpiPinPad } from "./UpiPinPad";
 import { cn } from "@/lib/utils";
 import { App } from "@capacitor/app";
+import { hasPinCredential } from "@/lib/pinSecurity";
 
 export const AppLock = ({ children }: { children: React.ReactNode }) => {
   const [biometricSettings] = useState(() => getBiometricSettings());
-  const [isLocked, setIsLocked] = useState(() => {
-    const hasName = !!localStorage.getItem("trupay_user_name");
-    const hasPin = !!localStorage.getItem("trupay_pin");
-    const isSessionUnlocked = sessionStorage.getItem("trupay_unlocked") === "true";
-    
-    // Only lock if fully onboarded AND not already unlocked in this session
-    return hasName && hasPin && !isSessionUnlocked;
-  });
+  const [isLocked, setIsLocked] = useState(false);
+  const [isChecking, setIsChecking] = useState(true);
   
   const [showBiometric, setShowBiometric] = useState(false);
   const [showPinPad, setShowPinPad] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    void hasPinCredential().then((hasPin) => {
+      if (!active) return;
+      const hasName = !!localStorage.getItem("trupay_user_name");
+      const isSessionUnlocked = sessionStorage.getItem("trupay_unlocked") === "true";
+      setIsLocked(hasName && hasPin && !isSessionUnlocked);
+      setIsChecking(false);
+    });
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     if (!isLocked) return;
@@ -51,8 +58,11 @@ export const AppLock = ({ children }: { children: React.ReactNode }) => {
     setIsLocked(false);
   };
 
-  const storedPin = localStorage.getItem("trupay_pin");
-
+  if (isChecking) return (
+    <div className="fixed inset-0 z-[300] bg-black flex items-center justify-center text-white">
+      <div className="text-xs font-bold uppercase tracking-[0.2em] text-primary animate-pulse">Securing app…</div>
+    </div>
+  );
   if (!isLocked) return <>{children}</>;
 
   return (

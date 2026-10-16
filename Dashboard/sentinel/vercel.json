@@ -1,8 +1,7 @@
 {
   "buildCommand": "npm run build",
   "installCommand": "npm install --legacy-peer-deps",
-  "outputDirectory": "dist/client",
-  "framework": null,
+  "outputDirectory": "dist",
   "rewrites": [
     { "source": "/predict", "destination": "/api/predict" },
     { "source": "/transaction", "destination": "/api/transaction" },
